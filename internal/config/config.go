@@ -1,0 +1,195 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// Copyright (C) 2026 yanujz
+
+package config
+
+import (
+	"fmt"
+	"os"
+	"regexp"
+	"strings"
+
+	"gopkg.in/yaml.v3"
+)
+
+// envVarRe matches ${VAR_NAME} substitution tokens.
+var envVarRe = regexp.MustCompile(`\$\{([A-Z0-9_]+)\}`)
+
+// GatewayConfig is the top-level configuration structure loaded from config.yaml.
+type GatewayConfig struct {
+	Gateway GatewaySection `yaml:"gateway"`
+	Tunnel  TunnelSection  `yaml:"tunnel"`
+	Buffer  BufferSection  `yaml:"buffer"`
+	Modems  []ModemConfig  `yaml:"modems"`
+	Health  HealthSection  `yaml:"health"`
+	Metrics MetricsSection `yaml:"metrics"`
+}
+
+type GatewaySection struct {
+	ID       string `yaml:"id"`
+	LogLevel string `yaml:"log_level"`
+}
+
+type TunnelSection struct {
+	URL                  string `yaml:"url"`
+	Token                string `yaml:"token"`
+	PingIntervalS        int    `yaml:"ping_interval_s"`
+	PingTimeoutS         int    `yaml:"ping_timeout_s"`
+	HeartbeatIntervalS   int    `yaml:"heartbeat_interval_s"`
+	ACKTimeoutS          int    `yaml:"ack_timeout_s"`
+	ReconnectBaseS       int    `yaml:"reconnect_base_s"`
+	ReconnectMaxS        int    `yaml:"reconnect_max_s"`
+}
+
+type BufferSection struct {
+	DBPath          string `yaml:"db_path"`
+	RetentionDays   int    `yaml:"retention_days"`
+	FlushIntervalM  int    `yaml:"flush_interval_m"`
+}
+
+type ModemConfig struct {
+	Port      string          `yaml:"port"`
+	Baud      int             `yaml:"baud"`
+	RateLimit RateLimitConfig `yaml:"rate_limit"`
+}
+
+type RateLimitConfig struct {
+	PerMin  int `yaml:"per_min"`
+	PerHour int `yaml:"per_hour"`
+	PerDay  int `yaml:"per_day"`
+}
+
+type HealthSection struct {
+	KeepaliveIntervalS    int `yaml:"keepalive_interval_s"`
+	SIMCapacityWarnPct    int `yaml:"sim_capacity_warn_pct"`
+	SIMCapacityPurgePct   int `yaml:"sim_capacity_purge_pct"`
+}
+
+type MetricsSection struct {
+	Addr string `yaml:"addr"`
+}
+
+// defaults fills in zero values with sensible production defaults.
+func defaults(cfg *GatewayConfig) {
+	if cfg.Gateway.LogLevel == "" {
+		cfg.Gateway.LogLevel = "info"
+	}
+	if cfg.Tunnel.PingIntervalS == 0 {
+		cfg.Tunnel.PingIntervalS = 30
+	}
+	if cfg.Tunnel.PingTimeoutS == 0 {
+		cfg.Tunnel.PingTimeoutS = 10
+	}
+	if cfg.Tunnel.HeartbeatIntervalS == 0 {
+		cfg.Tunnel.HeartbeatIntervalS = 60
+	}
+	if cfg.Tunnel.ACKTimeoutS == 0 {
+		cfg.Tunnel.ACKTimeoutS = 10
+	}
+	if cfg.Tunnel.ReconnectBaseS == 0 {
+		cfg.Tunnel.ReconnectBaseS = 1
+	}
+	if cfg.Tunnel.ReconnectMaxS == 0 {
+		cfg.Tunnel.ReconnectMaxS = 300
+	}
+	if cfg.Buffer.DBPath == "" {
+		cfg.Buffer.DBPath = "./sms.db"
+	}
+	if cfg.Buffer.RetentionDays == 0 {
+		cfg.Buffer.RetentionDays = 7
+	}
+	if cfg.Buffer.FlushIntervalM == 0 {
+		cfg.Buffer.FlushIntervalM = 10
+	}
+	if cfg.Health.KeepaliveIntervalS == 0 {
+		cfg.Health.KeepaliveIntervalS = 60
+	}
+	if cfg.Health.SIMCapacityWarnPct == 0 {
+		cfg.Health.SIMCapacityWarnPct = 80
+	}
+	if cfg.Health.SIMCapacityPurgePct == 0 {
+		cfg.Health.SIMCapacityPurgePct = 95
+	}
+	if cfg.Metrics.Addr == "" {
+		cfg.Metrics.Addr = "127.0.0.1:9101"
+	}
+	for i := range cfg.Modems {
+		if cfg.Modems[i].Baud == 0 {
+			cfg.Modems[i].Baud = 115200
+		}
+		if cfg.Modems[i].RateLimit.PerMin == 0 {
+			cfg.Modems[i].RateLimit.PerMin = 3
+		}
+		if cfg.Modems[i].RateLimit.PerHour == 0 {
+			cfg.Modems[i].RateLimit.PerHour = 30
+		}
+		if cfg.Modems[i].RateLimit.PerDay == 0 {
+			cfg.Modems[i].RateLimit.PerDay = 200
+		}
+	}
+}
+
+// expandEnv replaces ${VAR} tokens with their environment variable values.
+// Returns an error if any referenced variable is unset.
+func expandEnv(s string) (string, error) {
+	var expandErr error
+	result := envVarRe.ReplaceAllStringFunc(s, func(match string) string {
+		name := envVarRe.FindStringSubmatch(match)[1]
+		val, ok := os.LookupEnv(name)
+		if !ok {
+			expandErr = fmt.Errorf("environment variable %q is not set", name)
+			return match
+		}
+		return val
+	})
+	return result, expandErr
+}
+
+// Load reads and validates the configuration from the given YAML file path.
+// Environment variable references in the form ${VAR_NAME} are expanded.
+func Load(path string) (*GatewayConfig, error) {
+	raw, err := os.ReadFile(path)
+	if err != nil {
+		return nil, fmt.Errorf("read config: %w", err)
+	}
+
+	// Expand env vars before YAML parsing so they work inside quoted strings.
+	expanded, err := expandEnv(string(raw))
+	if err != nil {
+		return nil, fmt.Errorf("config env expansion: %w", err)
+	}
+
+	var cfg GatewayConfig
+	if err := yaml.NewDecoder(strings.NewReader(expanded)).Decode(&cfg); err != nil {
+		return nil, fmt.Errorf("parse config: %w", err)
+	}
+
+	defaults(&cfg)
+
+	if err := validate(&cfg); err != nil {
+		return nil, fmt.Errorf("invalid config: %w", err)
+	}
+
+	return &cfg, nil
+}
+
+func validate(cfg *GatewayConfig) error {
+	if cfg.Gateway.ID == "" {
+		return fmt.Errorf("gateway.id must not be empty")
+	}
+	if cfg.Tunnel.URL == "" {
+		return fmt.Errorf("tunnel.url must not be empty")
+	}
+	if cfg.Tunnel.Token == "" {
+		return fmt.Errorf("tunnel.token must not be empty")
+	}
+	if len(cfg.Modems) == 0 {
+		return fmt.Errorf("at least one modem must be configured")
+	}
+	for i, m := range cfg.Modems {
+		if m.Port == "" {
+			return fmt.Errorf("modems[%d].port must not be empty", i)
+		}
+	}
+	return nil
+}

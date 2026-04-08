@@ -1,0 +1,82 @@
+# /etc/systemd/system/go-sms-gate.service
+#
+# Install:
+#   sudo cp go-sms-gate.service /etc/systemd/system/
+#   sudo systemctl daemon-reload
+#   sudo systemctl enable --now go-sms-gate
+
+[Unit]
+Description=Go SMS Gateway — headless cellular modem multiplexer
+Documentation=https://github.com/yanujz/go-sms-gate
+After=network-online.target
+Wants=network-online.target
+
+# If the gateway crashes, restart it.  If it fails 5 times in 60s,
+# systemd will stop trying and log the failure — operator must investigate.
+StartLimitIntervalSec=60
+StartLimitBurst=5
+
+[Service]
+Type=simple
+
+# Run as a dedicated dynamic user. SystemD allocates UID/GID automatically
+# and creates /var/lib/go-sms-gate with the correct ownership.
+DynamicUser=yes
+StateDirectory=go-sms-gate
+
+# Load the bearer token from a root-only file — never put secrets in unit files.
+EnvironmentFile=/etc/go-sms-gate/env
+
+ExecStart=/usr/local/bin/go-sms-gate \
+  --config /etc/go-sms-gate/config.yaml
+
+Restart=on-failure
+RestartSec=5s
+
+# Give the process enough time to flush the offline buffer on shutdown.
+TimeoutStopSec=30s
+
+# Structured JSON logs go to journald; query with:
+#   journalctl -u go-sms-gate -f --output=json
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=go-sms-gate
+
+# ── Security hardening ─────────────────────────────────────────────────────
+# These directives are supported on systemd ≥ 232 (Raspberry Pi OS Bullseye+).
+
+# Prevent privilege escalation.
+NoNewPrivileges=yes
+
+# Make /usr, /boot, /etc read-only. The gateway only writes to StateDirectory.
+ProtectSystem=strict
+
+# Block access to /home and /root.
+ProtectHome=yes
+
+# Private /tmp — no sharing with other processes.
+PrivateTmp=yes
+
+# Disallow use of setuid/setgid binaries.
+MemoryDenyWriteExecute=yes
+
+# Restrict syscall surface to what a network daemon needs.
+SystemCallFilter=@system-service
+SystemCallErrorNumber=EPERM
+
+# Lock down kernel tuning interfaces.
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+
+# Restrict address families to inet (WSS tunnel) and unix (syslog).
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+
+# The gateway needs AF_UNIX for journald and AF_INET6 for the WSS tunnel.
+# It also needs access to /dev/ttyUSBn devices.
+# Add the service account to the "dialout" group for serial port access:
+#   usermod -aG dialout <dynamic-user>
+# Or use a udev rule (see README).
+
+[Install]
+WantedBy=multi-user.target

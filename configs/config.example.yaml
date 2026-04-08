@@ -1,0 +1,101 @@
+# go-sms-gate configuration
+# ---------------------------------------------------------------------------
+# Sensitive values must be passed via environment variable references
+# using the ${ENV_VAR_NAME} syntax.  This file should have mode 640 and be
+# owned by root (or the service account):
+#
+#   chmod 640 /etc/go-sms-gate/config.yaml
+#   chown root:go-sms-gate /etc/go-sms-gate/config.yaml   # if group exists
+
+# ── Gateway identity ────────────────────────────────────────────────────────
+gateway:
+  # Unique identifier for this hardware node.  Appears in all log lines,
+  # heartbeat events, and alert notifications.  Use a descriptive name.
+  id: gw-bavaria-01
+
+  # Log level: debug | info | warn | error
+  # Production: "info".  Debugging serial issues: "debug".
+  log_level: info
+
+# ── WebSocket tunnel ────────────────────────────────────────────────────────
+tunnel:
+  # Secure WebSocket endpoint on your Cloud Server (must use wss://).
+  url: wss://api.yourdomain.com/tunnel
+
+  # Bearer token for authentication during the WebSocket upgrade.
+  # ⚠️  Never put the actual token here.  Reference an environment variable
+  # defined in /etc/go-sms-gate/env (mode 600, root-owned).
+  token: ${GATEWAY_TOKEN}
+
+  # WebSocket protocol-level keepalive (§3.2 of the spec).
+  # A Ping frame is sent every ping_interval_s seconds.
+  # If no Pong is received within ping_timeout_s, the connection is declared
+  # dead and reconnection begins.
+  ping_interval_s:  30   # default: 30
+  ping_timeout_s:   10   # default: 10
+
+  # Application-level heartbeat interval (§3.5.5).
+  # Distinct from the ping/pong — carries modem telemetry to the cloud.
+  heartbeat_interval_s: 60  # default: 60
+
+  # How long to wait for SMS_DELIVERED_ACK from the cloud (§3.5.2).
+  ack_timeout_s: 10  # default: 10
+
+  # Reconnection backoff: delay = min(base * 2^attempt, max) + jitter.
+  reconnect_base_s:  1    # default: 1s
+  reconnect_max_s:   300  # default: 5m
+
+# ── Offline buffer (SQLite) ─────────────────────────────────────────────────
+buffer:
+  # Path to the WAL-mode SQLite database.
+  # With systemd DynamicUser=yes and StateDirectory=go-sms-gate, use:
+  db_path: /var/lib/go-sms-gate/sms.db
+
+  # How many days to retain DELIVERED rows before purging them.
+  retention_days: 7  # default: 7
+
+  # How often to replay PENDING rows (defensive flush for missed ACKs).
+  flush_interval_m: 10  # default: 10 minutes
+
+# ── Modem configuration ─────────────────────────────────────────────────────
+# One entry per physical USB modem.  The gateway spawns one goroutine per
+# modem; they are fully isolated — one crash does not affect the others.
+modems:
+  - port: /dev/ttyUSB0
+    baud: 115200  # default: 115200
+
+    # Per-SIM SMS send rate limits (sliding windows).
+    # Keeps carriers from silently banning high-volume SIMs.
+    rate_limit:
+      per_min:  3    # default: 3
+      per_hour: 30   # default: 30
+      per_day:  200  # default: 200
+
+  - port: /dev/ttyUSB2
+    baud: 115200
+    rate_limit:
+      per_min:  3
+      per_hour: 30
+      per_day:  200
+
+  # Add more modems as needed:
+  # - port: /dev/ttyUSB4
+  #   baud: 115200
+
+# ── Health monitoring ────────────────────────────────────────────────────────
+health:
+  # How often each worker polls AT+CREG? / AT+CSQ for keepalive.
+  keepalive_interval_s: 60  # default: 60
+
+  # SIM storage utilisation (%) that triggers a SIM_FULL alert event.
+  sim_capacity_warn_pct:  80  # default: 80
+
+  # SIM storage utilisation (%) that triggers an autonomous AT+CMGD=1,4 purge.
+  # This is a last-resort safety net — messages deleted here bypass SQLite.
+  sim_capacity_purge_pct: 95  # default: 95
+
+# ── Prometheus metrics ───────────────────────────────────────────────────────
+metrics:
+  # ⚠️  MUST be a loopback address.  Never expose on 0.0.0.0.
+  # Scrape with: curl http://127.0.0.1:9101/metrics
+  addr: 127.0.0.1:9101  # default: 127.0.0.1:9101
