@@ -8,15 +8,15 @@ import (
 	"testing"
 )
 
-// makeWorkerWithTask returns a Worker whose taskCh is populated with one task,
+// makeWorkerWithTask returns a Worker whose inboundCh is populated with one task,
 // making it appear "busy" for the next Dispatch call.
 func makeWorkerForRegistry(t *testing.T, busy bool) *Worker {
 	t.Helper()
 	w := &Worker{
-		taskCh: make(chan InboundTask, 1),
+		inboundCh: make(chan InboundTask, 1),
 	}
 	if busy {
-		w.taskCh <- InboundTask{} // fill the single-slot buffer
+		w.inboundCh <- InboundTask{} // fill the single-slot buffer
 	}
 	return w
 }
@@ -80,10 +80,10 @@ func TestRegistry_Dispatch_Success(t *testing.T) {
 
 	// Verify the task landed in the channel.
 	select {
-	case got := <-w.taskCh:
+	case got := <-w.inboundCh:
 		_ = got
 	default:
-		t.Error("task was not enqueued in worker's taskCh")
+		t.Error("task was not enqueued in worker's inboundCh")
 	}
 }
 
@@ -97,7 +97,7 @@ func TestRegistry_Dispatch_NotFound(t *testing.T) {
 
 func TestRegistry_Dispatch_Busy(t *testing.T) {
 	reg := NewRegistry()
-	w := makeWorkerForRegistry(t, true) // taskCh already full
+	w := makeWorkerForRegistry(t, true) // inboundCh already full
 	reg.Register("ICCID1", w)
 
 	err := reg.Dispatch("ICCID1", InboundTask{})

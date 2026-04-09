@@ -86,8 +86,10 @@ func (b *Buffer) Insert(iccid, sender, body, pduHash, smsc string, receivedAt in
 	}
 	id, _ := res.LastInsertId()
 	rows, _ := res.RowsAffected()
-	isDuplicate := rows == 0
-	return id, isDuplicate, nil
+	if rows == 0 {
+		return 0, true, nil
+	}
+	return id, false, nil
 }
 
 // MarkDelivered sets a row's status to DELIVERED and records the delivery timestamp.

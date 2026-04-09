@@ -142,7 +142,7 @@ func TestBCDAddress_Domestic(t *testing.T) {
 //
 // Hex layout (19 bytes / 38 hex chars):
 // 00  04  06 91 94 21 43  00  00  00 00 00 00 00 00 00  02  C8 34
-const knownPDU = "000406919421430000000000000000000002C834"
+const knownPDU = "0004069194214300000000000000000002C834"
 
 func TestDecodePDU_Basic(t *testing.T) {
 	d, err := DecodePDU(knownPDU)

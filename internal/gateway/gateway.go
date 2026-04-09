@@ -33,6 +33,7 @@ type Gateway struct {
 	limiter *modem.RateLimiterRegistry
 	mgr     *tunnel.Manager
 	rtr     *router.Router
+	promReg *prometheus.Registry
 }
 
 // New constructs the Gateway, opening the SQLite buffer and wiring all subsystems.
@@ -56,6 +57,7 @@ func New(conf *cfg.GatewayConfig, log *slog.Logger) (*Gateway, error) {
 		buf:     buf,
 		reg:     reg,
 		limiter: limiter,
+		promReg: promReg,
 	}
 
 	// Tunnel Manager — eventFn is wired below after rtr is built.
@@ -97,7 +99,7 @@ func (g *Gateway) Run(ctx context.Context) error {
 	// Start metrics HTTP server (loopback only).
 	metricsSrv := &http.Server{
 		Addr:    g.conf.Metrics.Addr,
-		Handler: metrics.HandlerFor(promReg),
+		Handler: metrics.HandlerFor(g.promReg),
 	}
 	wg.Add(1)
 	go func() {

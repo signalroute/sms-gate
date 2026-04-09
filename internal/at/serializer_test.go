@@ -76,7 +76,7 @@ func (p *mockPort) Close() error {
 func newTestSerializer(t *testing.T) (*Serializer, *mockPort) {
 	t.Helper()
 	port := newMockPort()
-	s := NewSerializer(port)
+	s := NewSerializer(port, nil)
 	t.Cleanup(func() {
 		port.Close()
 		s.Close()

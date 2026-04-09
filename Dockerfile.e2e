@@ -1,0 +1,14 @@
+FROM golang:1.22-alpine AS builder
+# sms-gate might have issues with CGO if it uses generic serial, 
+# but per README it uses pure Go modernc.org/sqlite.
+WORKDIR /app
+COPY go.mod go.sum ./
+RUN go mod download
+COPY . .
+RUN CGO_ENABLED=0 go build -o go-sms-gate ./cmd/gateway
+
+FROM alpine:latest
+WORKDIR /app
+COPY --from=builder /app/go-sms-gate .
+# No ports exposed as per architecture
+CMD ["./go-sms-gate"]

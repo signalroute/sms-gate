@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log/slog"
 	"strings"
 	"sync"
 	"time"
@@ -76,14 +77,16 @@ type Serializer struct {
 
 	closeOnce sync.Once
 	closed    chan struct{}
+	log       *slog.Logger
 }
 
 // NewSerializer creates a Serializer and starts its reader goroutine.
-func NewSerializer(port io.ReadWriteCloser) *Serializer {
+func NewSerializer(port io.ReadWriteCloser, log *slog.Logger) *Serializer {
 	s := &Serializer{
 		port:   port,
 		URCCH:  make(chan string, 64),
 		closed: make(chan struct{}),
+		log:    log,
 	}
 	go s.reader()
 	return s
@@ -97,6 +100,10 @@ func (s *Serializer) reader() {
 		line := strings.TrimRight(sc.Text(), "\r")
 		if line == "" {
 			continue
+		}
+
+		if s.log != nil {
+			s.log.Debug("← recv", "line", line)
 		}
 
 		if isURC(line) {
@@ -424,7 +431,7 @@ func (s *Serializer) RegistrationStatus() (int, error) {
 			}
 			// +CREG: <stat> (no n parameter)
 			var stat int
-			fmt.Sscanf(strings.TrimSpace(strings.TrimPrefix(l, "+CREG:")), " %d", &stat)
+			fmt.Sscanf(strings.TrimSpace(strings.TrimPrefix(l, "+CREG:")), "%d", &stat)
 			return stat, nil
 		}
 	}

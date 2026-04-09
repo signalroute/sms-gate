@@ -8,6 +8,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"log/slog"
+	"net"
+	"strings"
 	"sync/atomic"
 	"time"
 
@@ -98,7 +100,7 @@ type Worker struct {
 	recv1H     atomic.Int64
 
 	// Channels
-	taskCh  chan InboundTask // size 1 — one pending task at a time
+	inboundCh chan InboundTask // size 64 — buffered to prevent deadlocks during URC peaks
 
 	// Dependencies
 	buf        *buffer.Buffer
@@ -146,7 +148,7 @@ func NewWorker(cfg WorkerConfig) *Worker {
 		simCapacityPurgePct: cfg.SIMCapacityPurgePct,
 		logger:              cfg.Logger,
 		metrics:             cfg.Metrics,
-		taskCh:              make(chan InboundTask, 1),
+		inboundCh:           make(chan InboundTask, 64),
 	}
 	w.state.Store(int32(StateInitializing))
 	return w
@@ -184,7 +186,7 @@ func (w *Worker) Run(ctx context.Context, registry *Registry) State {
 	}
 	defer ser.Close()
 
-	atSer := at.NewSerializer(ser)
+	atSer := at.NewSerializer(ser, log)
 	defer atSer.Close()
 
 	// ── Init sequence (§4.1.2) ───────────────────────────────────────────
@@ -220,7 +222,8 @@ func (w *Worker) Run(ctx context.Context, registry *Registry) State {
 		case urc := <-atSer.URCCH:
 			w.handleURC(ctx, atSer, urc, log)
 
-		case task := <-w.taskCh:
+		case task := <-w.inboundCh:
+			log.Info("received task from inbound channel")
 			w.executeTask(ctx, atSer, task, registry, log)
 
 		case <-keepaliveTicker.C:
@@ -241,7 +244,35 @@ func (w *Worker) Run(ctx context.Context, registry *Registry) State {
 
 // ── Serial port open ──────────────────────────────────────────────────────
 
+// tcpPort wraps a net.Conn to satisfy the serial.Port interface (partially).
+type tcpPort struct {
+	net.Conn
+}
+
+func (p *tcpPort) SetMode(mode *serial.Mode) error { return nil }
+func (p *tcpPort) Drain() error                   { return nil }
+func (p *tcpPort) Break(time.Duration) error      { return nil }
+func (p *tcpPort) SetDTR(bool) error              { return nil }
+func (p *tcpPort) SetRTS(bool) error              { return nil }
+func (p *tcpPort) SetReadTimeout(time.Duration) error { return nil }
+func (p *tcpPort) ResetInputBuffer() error         { return nil }
+func (p *tcpPort) ResetOutputBuffer() error        { return nil }
+func (p *tcpPort) GetModemStatusBits() (*serial.ModemStatusBits, error) {
+	return &serial.ModemStatusBits{}, nil
+}
+
 func (w *Worker) openPort() (serial.Port, error) {
+	// Heuristic: if port contains ':' and doesn't look like a Mac/Linux device path,
+	// treat it as a TCP address.
+	if strings.Contains(w.port, ":") && !strings.HasPrefix(w.port, "/") {
+		w.logger.Info("opening TCP connection to modem", "addr", w.port)
+		conn, err := (&net.Dialer{Timeout: 5 * time.Second}).Dial("tcp", w.port)
+		if err != nil {
+			return nil, fmt.Errorf("tcp dial %s: %w", w.port, err)
+		}
+		return &tcpPort{Conn: conn}, nil
+	}
+
 	mode := &serial.Mode{
 		BaudRate: w.baud,
 		DataBits: 8,

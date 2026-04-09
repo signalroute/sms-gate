@@ -58,7 +58,7 @@ func (r *Registry) Dispatch(iccid string, task InboundTask) error {
 		return ErrModemNotFound
 	}
 	select {
-	case w.taskCh <- task:
+	case w.inboundCh <- task:
 		return nil
 	default:
 		return ErrModemBusy
