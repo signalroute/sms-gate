@@ -9,8 +9,8 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/yanujz/go-sms-gate/internal/modem"
-	"github.com/yanujz/go-sms-gate/internal/tunnel"
+	"github.com/signalroute/go-sms-gate/internal/modem"
+	"github.com/signalroute/go-sms-gate/internal/tunnel"
 )
 
 // Router dispatches inbound Tasks to the appropriate Modem Worker.

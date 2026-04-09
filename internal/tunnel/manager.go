@@ -17,8 +17,8 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/gorilla/websocket"
-	"github.com/yanujz/go-sms-gate/internal/buffer"
-	"github.com/yanujz/go-sms-gate/internal/metrics"
+	"github.com/signalroute/go-sms-gate/internal/buffer"
+	"github.com/signalroute/go-sms-gate/internal/metrics"
 )
 
 // NewEnvelope creates a new message envelope with a fresh UUID and current timestamp.

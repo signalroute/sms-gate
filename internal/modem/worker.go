@@ -11,10 +11,10 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/yanujz/go-sms-gate/internal/at"
-	"github.com/yanujz/go-sms-gate/internal/buffer"
-	"github.com/yanujz/go-sms-gate/internal/metrics"
-	"github.com/yanujz/go-sms-gate/internal/tunnel"
+	"github.com/signalroute/go-sms-gate/internal/at"
+	"github.com/signalroute/go-sms-gate/internal/buffer"
+	"github.com/signalroute/go-sms-gate/internal/metrics"
+	"github.com/signalroute/go-sms-gate/internal/tunnel"
 
 	"go.bug.st/serial"
 )

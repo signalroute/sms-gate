@@ -13,12 +13,12 @@ import (
 	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
-	"github.com/yanujz/go-sms-gate/internal/buffer"
-	cfg "github.com/yanujz/go-sms-gate/internal/config"
-	"github.com/yanujz/go-sms-gate/internal/metrics"
-	"github.com/yanujz/go-sms-gate/internal/modem"
-	"github.com/yanujz/go-sms-gate/internal/router"
-	"github.com/yanujz/go-sms-gate/internal/tunnel"
+	"github.com/signalroute/go-sms-gate/internal/buffer"
+	cfg "github.com/signalroute/go-sms-gate/internal/config"
+	"github.com/signalroute/go-sms-gate/internal/metrics"
+	"github.com/signalroute/go-sms-gate/internal/modem"
+	"github.com/signalroute/go-sms-gate/internal/router"
+	"github.com/signalroute/go-sms-gate/internal/tunnel"
 )
 
 const agentVersion = "2.0.0"

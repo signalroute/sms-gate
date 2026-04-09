@@ -17,8 +17,8 @@ import (
 	"os/signal"
 	"syscall"
 
-	"github.com/yanujz/go-sms-gate/internal/config"
-	"github.com/yanujz/go-sms-gate/internal/gateway"
+	"github.com/signalroute/go-sms-gate/internal/config"
+	"github.com/signalroute/go-sms-gate/internal/gateway"
 )
 
 // version is injected at build time via -ldflags "-X main.version=<tag>".

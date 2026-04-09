@@ -9,8 +9,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/yanujz/go-sms-gate/internal/modem"
-	"github.com/yanujz/go-sms-gate/internal/tunnel"
+	"github.com/signalroute/go-sms-gate/internal/modem"
+	"github.com/signalroute/go-sms-gate/internal/tunnel"
 )
 
 // ── Test helpers ──────────────────────────────────────────────────────────

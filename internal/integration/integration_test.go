@@ -18,9 +18,9 @@ import (
 
 	"github.com/gorilla/websocket"
 	"github.com/prometheus/client_golang/prometheus"
-	"github.com/yanujz/go-sms-gate/internal/buffer"
-	"github.com/yanujz/go-sms-gate/internal/metrics"
-	"github.com/yanujz/go-sms-gate/internal/tunnel"
+	"github.com/signalroute/go-sms-gate/internal/buffer"
+	"github.com/signalroute/go-sms-gate/internal/metrics"
+	"github.com/signalroute/go-sms-gate/internal/tunnel"
 )
 
 // ── mockServer — in-process WebSocket cloud endpoint ─────────────────────
