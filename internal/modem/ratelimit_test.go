@@ -162,6 +162,132 @@ func TestRateLimiterRegistry_IsolatesICCIDs(t *testing.T) {
 	}
 }
 
+// ── Additional named coverage tests ──────────────────────────────────────
+
+func TestWindow_Allow_UnderLimit(t *testing.T) {
+	t.Parallel()
+	const limit = 5
+	w := newWindow(limit, time.Minute)
+	now := time.Now()
+	for i := 0; i < limit-1; i++ {
+		if !w.Allow(now) {
+			t.Errorf("Allow[%d] returned false, want true (under limit)", i)
+		}
+	}
+}
+
+func TestWindow_Allow_AtLimit(t *testing.T) {
+	t.Parallel()
+	const limit = 5
+	w := newWindow(limit, time.Minute)
+	now := time.Now()
+	for i := 0; i < limit; i++ {
+		w.Allow(now)
+	}
+	if w.Allow(now) {
+		t.Error("Allow after limit should return false")
+	}
+}
+
+func TestWindow_Allow_Expiry(t *testing.T) {
+	const limit = 3
+	w := newWindow(limit, 10*time.Millisecond)
+	now := time.Now()
+	for i := 0; i < limit; i++ {
+		w.Allow(now)
+	}
+	if w.Allow(now) {
+		t.Fatal("should be blocked immediately after filling")
+	}
+	time.Sleep(15 * time.Millisecond)
+	future := time.Now()
+	if !w.Allow(future) {
+		t.Error("should be allowed after 10ms window expired")
+	}
+}
+
+// TestSIMRateLimiter_AllWindows verifies each window independently blocks.
+func TestSIMRateLimiter_AllWindows(t *testing.T) {
+	t.Parallel()
+
+	t.Run("per-min fires", func(t *testing.T) {
+		lim := newSIMRateLimiter(RateLimitConfig{PerMin: 2, PerHour: 1000, PerDay: 10000})
+		lim.Allow()
+		lim.Allow()
+		if lim.Allow() {
+			t.Error("per-min window should block")
+		}
+	})
+
+	t.Run("per-hour fires", func(t *testing.T) {
+		lim := newSIMRateLimiter(RateLimitConfig{PerMin: 1000, PerHour: 2, PerDay: 10000})
+		lim.Allow()
+		lim.Allow()
+		if lim.Allow() {
+			t.Error("per-hour window should block")
+		}
+	})
+
+	t.Run("per-day fires", func(t *testing.T) {
+		lim := newSIMRateLimiter(RateLimitConfig{PerMin: 1000, PerHour: 1000, PerDay: 2})
+		lim.Allow()
+		lim.Allow()
+		if lim.Allow() {
+			t.Error("per-day window should block")
+		}
+	})
+}
+
+func TestSIMRateLimiter_AllPass(t *testing.T) {
+	t.Parallel()
+	lim := newSIMRateLimiter(RateLimitConfig{PerMin: 100, PerHour: 100, PerDay: 100})
+	for i := 0; i < 10; i++ {
+		if !lim.Allow() {
+			t.Errorf("Allow[%d] returned false, want true", i)
+		}
+	}
+}
+
+func TestRateLimiterRegistry_NoLimiter(t *testing.T) {
+	t.Parallel()
+	reg := NewRateLimiterRegistry()
+	for i := 0; i < 10; i++ {
+		if !reg.Allow("ICCID_UNREGISTERED") {
+			t.Errorf("Allow[%d] for unknown ICCID should return true", i)
+		}
+	}
+}
+
+func TestRateLimiterRegistry_Register_Allow(t *testing.T) {
+	t.Parallel()
+	reg := NewRateLimiterRegistry()
+	reg.Register("ICCID_RL", RateLimitConfig{PerMin: 5, PerHour: 100, PerDay: 1000})
+	for i := 0; i < 5; i++ {
+		if !reg.Allow("ICCID_RL") {
+			t.Errorf("Allow[%d] should pass (within per-min=5)", i)
+		}
+	}
+	if reg.Allow("ICCID_RL") {
+		t.Error("6th Allow should fail (per-min=5 exhausted)")
+	}
+}
+
+func TestRateLimiterRegistry_MultipleICCIDs(t *testing.T) {
+	t.Parallel()
+	reg := NewRateLimiterRegistry()
+	reg.Register("ICCID_X", RateLimitConfig{PerMin: 1, PerHour: 100, PerDay: 1000})
+	reg.Register("ICCID_Y", RateLimitConfig{PerMin: 1, PerHour: 100, PerDay: 1000})
+
+	reg.Allow("ICCID_X") // exhaust ICCID_X per-min
+
+	if !reg.Allow("ICCID_Y") {
+		t.Error("ICCID_Y quota must be independent of ICCID_X")
+	}
+	if reg.Allow("ICCID_X") {
+		t.Error("ICCID_X should still be blocked")
+	}
+}
+
 // ── wouldAllow correctness ─────────────────────────────────────────────────
 // Verify that wouldAllow does NOT advance the window (pure check).
 
