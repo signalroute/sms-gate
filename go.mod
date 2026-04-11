@@ -1,4 +1,4 @@
-module github.com/signalroute/go-sms-gate
+module github.com/signalroute/sms-gate
 
 go 1.22
 

@@ -1,5 +1,5 @@
-// SPDX-License-Identifier: GPL-3.0-or-later
-// Copyright (C) 2026 yanujz
+// SPDX-License-Identifier: MIT
+// Copyright (C) 2026 Signalroute
 
 package tunnel
 
@@ -17,8 +17,8 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/gorilla/websocket"
-	"github.com/signalroute/go-sms-gate/internal/buffer"
-	"github.com/signalroute/go-sms-gate/internal/metrics"
+	"github.com/signalroute/sms-gate/internal/buffer"
+	"github.com/signalroute/sms-gate/internal/metrics"
 )
 
 // NewEnvelope creates a new message envelope with a fresh UUID and current timestamp.

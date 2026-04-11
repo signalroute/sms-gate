@@ -1,5 +1,5 @@
-// SPDX-License-Identifier: GPL-3.0-or-later
-// Copyright (C) 2026 yanujz
+// SPDX-License-Identifier: MIT
+// Copyright (C) 2026 Signalroute
 
 // Package at implements AT command serialization and SMS PDU encoding/decoding
 // per ITU-T V.250 and 3GPP TS 23.038 / 27.007.

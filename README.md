@@ -1,4 +1,4 @@
-# go-sms-gate
+# sms-gate
 
 A production-grade, headless Go daemon that multiplexes multiple 4G/LTE USB modems behind NAT. Inbound SMS messages (2FA codes, alerts) are pushed in real time to a central Cloud Server over a persistent encrypted WebSocket tunnel. The gateway exposes **zero inbound ports**.
 
@@ -49,8 +49,8 @@ Built against the [v2.0.0 wire protocol specification](docs/spec-v2.0.0.docx).
 
 ```bash
 # 1. Clone and build for the current host
-git clone https://github.com/yanujz/go-sms-gate
-cd go-sms-gate
+git clone https://github.com/signalroute/sms-gate
+cd sms-gate
 make build
 
 # 2. Cross-compile for Raspberry Pi 4 (ARM64)
@@ -191,4 +191,4 @@ The `deploy` target builds, copies, and restarts the service in one step. On res
 
 ## License
 
-GPL-3.0-or-later — see [LICENSE](LICENSE).
+MIT — see [LICENSE](LICENSE).

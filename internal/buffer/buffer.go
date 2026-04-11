@@ -1,5 +1,5 @@
-// SPDX-License-Identifier: GPL-3.0-or-later
-// Copyright (C) 2026 yanujz
+// SPDX-License-Identifier: MIT
+// Copyright (C) 2026 Signalroute
 
 // Package buffer implements the SQLite-backed offline SMS buffer (WAL mode,
 // pure-Go modernc.org/sqlite driver, no CGO).

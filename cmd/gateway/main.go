@@ -1,5 +1,5 @@
-// SPDX-License-Identifier: GPL-3.0-or-later
-// Copyright (C) 2026 yanujz
+// SPDX-License-Identifier: MIT
+// Copyright (C) 2026 Signalroute
 
 // Command gateway is the Go-SMS-Gate headless modem daemon.
 //
@@ -17,8 +17,8 @@ import (
 	"os/signal"
 	"syscall"
 
-	"github.com/signalroute/go-sms-gate/internal/config"
-	"github.com/signalroute/go-sms-gate/internal/gateway"
+	"github.com/signalroute/sms-gate/internal/config"
+	"github.com/signalroute/sms-gate/internal/gateway"
 )
 
 // version is injected at build time via -ldflags "-X main.version=<tag>".

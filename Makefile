@@ -1,8 +1,8 @@
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: MIT
 # go-sms-gate Makefile
 
 BINARY     := go-sms-gate
-MODULE     := github.com/yanujz/go-sms-gate
+MODULE     := github.com/signalroute/sms-gate
 CMD        := ./cmd/gateway
 
 VERSION    := $(shell git describe --tags --always --dirty 2>/dev/null || echo "dev")

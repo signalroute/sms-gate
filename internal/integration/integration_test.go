@@ -1,5 +1,5 @@
-// SPDX-License-Identifier: GPL-3.0-or-later
-// Copyright (C) 2026 yanujz
+// SPDX-License-Identifier: MIT
+// Copyright (C) 2026 Signalroute
 
 // Package integration contains end-to-end tests that run a mock Cloud Server
 // in-process and exercise the full Tunnel Manager ↔ Cloud path.
@@ -18,9 +18,9 @@ import (
 
 	"github.com/gorilla/websocket"
 	"github.com/prometheus/client_golang/prometheus"
-	"github.com/signalroute/go-sms-gate/internal/buffer"
-	"github.com/signalroute/go-sms-gate/internal/metrics"
-	"github.com/signalroute/go-sms-gate/internal/tunnel"
+	"github.com/signalroute/sms-gate/internal/buffer"
+	"github.com/signalroute/sms-gate/internal/metrics"
+	"github.com/signalroute/sms-gate/internal/tunnel"
 )
 
 // ── mockServer — in-process WebSocket cloud endpoint ─────────────────────

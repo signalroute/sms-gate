@@ -7,7 +7,7 @@
 
 [Unit]
 Description=Go SMS Gateway — headless cellular modem multiplexer
-Documentation=https://github.com/yanujz/go-sms-gate
+Documentation=https://github.com/signalroute/sms-gate
 After=network-online.target
 Wants=network-online.target
 

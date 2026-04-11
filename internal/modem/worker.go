@@ -1,5 +1,5 @@
-// SPDX-License-Identifier: GPL-3.0-or-later
-// Copyright (C) 2026 yanujz
+// SPDX-License-Identifier: MIT
+// Copyright (C) 2026 Signalroute
 
 package modem
 
@@ -13,10 +13,10 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/signalroute/go-sms-gate/internal/at"
-	"github.com/signalroute/go-sms-gate/internal/buffer"
-	"github.com/signalroute/go-sms-gate/internal/metrics"
-	"github.com/signalroute/go-sms-gate/internal/tunnel"
+	"github.com/signalroute/sms-gate/internal/at"
+	"github.com/signalroute/sms-gate/internal/buffer"
+	"github.com/signalroute/sms-gate/internal/metrics"
+	"github.com/signalroute/sms-gate/internal/tunnel"
 
 	"go.bug.st/serial"
 )

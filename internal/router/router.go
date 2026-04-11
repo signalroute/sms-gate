@@ -1,5 +1,5 @@
-// SPDX-License-Identifier: GPL-3.0-or-later
-// Copyright (C) 2026 yanujz
+// SPDX-License-Identifier: MIT
+// Copyright (C) 2026 Signalroute
 
 // Package router implements the Task Router (§4.3 of the spec).
 package router
@@ -9,8 +9,8 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/signalroute/go-sms-gate/internal/modem"
-	"github.com/signalroute/go-sms-gate/internal/tunnel"
+	"github.com/signalroute/sms-gate/internal/modem"
+	"github.com/signalroute/sms-gate/internal/tunnel"
 )
 
 // Router dispatches inbound Tasks to the appropriate Modem Worker.

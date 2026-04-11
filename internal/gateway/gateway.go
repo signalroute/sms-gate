@@ -1,5 +1,5 @@
-// SPDX-License-Identifier: GPL-3.0-or-later
-// Copyright (C) 2026 yanujz
+// SPDX-License-Identifier: MIT
+// Copyright (C) 2026 Signalroute
 
 // Package gateway wires all subsystems together into the running gateway.
 package gateway
@@ -13,12 +13,12 @@ import (
 	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
-	"github.com/signalroute/go-sms-gate/internal/buffer"
-	cfg "github.com/signalroute/go-sms-gate/internal/config"
-	"github.com/signalroute/go-sms-gate/internal/metrics"
-	"github.com/signalroute/go-sms-gate/internal/modem"
-	"github.com/signalroute/go-sms-gate/internal/router"
-	"github.com/signalroute/go-sms-gate/internal/tunnel"
+	"github.com/signalroute/sms-gate/internal/buffer"
+	cfg "github.com/signalroute/sms-gate/internal/config"
+	"github.com/signalroute/sms-gate/internal/metrics"
+	"github.com/signalroute/sms-gate/internal/modem"
+	"github.com/signalroute/sms-gate/internal/router"
+	"github.com/signalroute/sms-gate/internal/tunnel"
 )
 
 const agentVersion = "2.0.0"
