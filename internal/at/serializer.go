@@ -193,6 +193,12 @@ func (s *Serializer) Execute(cmd string, timeout time.Duration) ([]string, error
 				lines = append(lines, line)
 			}
 		case <-timer.C:
+			// The modem did not respond in time.  Close the serializer so the
+			// reader goroutine unblocks (it is currently blocked in sc.Scan()
+			// waiting for bytes that will never arrive).  Without this, the
+			// reader leaks permanently on every modem that stops responding
+			// (#165).  After Close() any future Execute call returns ErrClosed.
+			s.Close()
 			return nil, ErrTimeout
 		case <-s.closed:
 			return nil, ErrClosed
@@ -252,6 +258,7 @@ func (s *Serializer) ExecuteSend(pduHex string, pduLen int, timeout time.Duratio
 				return 0, fmt.Errorf("CMGS rejected before prompt: %s", line)
 			}
 		case <-promptTimer.C:
+			s.Close()
 			return 0, ErrSendPrompt
 		case <-s.closed:
 			return 0, ErrClosed
@@ -286,6 +293,7 @@ func (s *Serializer) ExecuteSend(pduHex string, pduLen int, timeout time.Duratio
 				return 0, fmt.Errorf("CMS ERROR %s", code)
 			}
 		case <-timer.C:
+			s.Close()
 			return 0, ErrTimeout
 		case <-s.closed:
 			return 0, ErrClosed
