@@ -150,7 +150,7 @@ modems:
 	}
 
 	// Metrics default
-	if cfg.Metrics.Addr != "127.0.0.1:9101" {
+	if cfg.Metrics.Addr != ":9200" {
 		t.Errorf("metrics.addr default: got %q", cfg.Metrics.Addr)
 	}
 }

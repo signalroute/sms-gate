@@ -183,6 +183,9 @@ func NewWorker(cfg WorkerConfig) *Worker {
 // ICCID returns the SIM ICCID once initialization is complete.
 func (w *Worker) ICCID() string { return w.iccid }
 
+// QueueLen returns the number of tasks currently waiting in the inbound queue.
+func (w *Worker) QueueLen() int { return len(w.inboundCh) }
+
 // Status returns a snapshot of the worker's current status.
 func (w *Worker) Status() WorkerStatus {
 	return WorkerStatus{
@@ -231,8 +234,7 @@ func (w *Worker) Run(ctx context.Context, registry *Registry) State {
 
 	w.state.Store(int32(StateActive))
 	w.metrics.ModemState.WithLabelValues(w.iccid).Set(float64(StateActive))
-
-	// ── Main loop ─────────────────────────────────────────────────────────
+	w.metrics.ActiveConnections.Inc()
 
 	keepaliveTicker := time.NewTicker(w.keepaliveInterval)
 	capacityTicker := time.NewTicker(5 * time.Minute)
@@ -280,6 +282,7 @@ func (w *Worker) Run(ctx context.Context, registry *Registry) State {
 			// silent task loss on SIGTERM (issue #175).
 			registry.Deregister(w.iccid)
 			w.drainInboundCh(log)
+			w.metrics.ActiveConnections.Dec()
 			return StateActive
 
 		case urc := <-atSer.URCCH:
@@ -556,6 +559,11 @@ func (w *Worker) executeTask(ctx context.Context, s *at.Serializer, it InboundTa
 	status := tunnel.StatusSuccess
 	if taskErr != nil {
 		status = tunnel.StatusFailed
+		if task.Action == tunnel.ActionSendSMS {
+			w.metrics.MessagesFailedTotal.WithLabelValues(w.iccid, taskErr.Code).Inc()
+		}
+	} else if task.Action == tunnel.ActionSendSMS {
+		w.metrics.MessagesSentTotal.WithLabelValues(w.iccid).Inc()
 	}
 
 	ack := tunnel.TaskAckEvent{
