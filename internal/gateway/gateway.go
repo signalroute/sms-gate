@@ -83,7 +83,7 @@ func New(conf *cfg.GatewayConfig, log *slog.Logger) (*Gateway, error) {
 	g.mgr = mgr
 
 	// Task Router — dispatches inbound tasks to workers and pushes ACKs via mgr.Push.
-	rtr := router.New(reg, mgr.Push)
+	rtr := router.New(reg, mgr.Push, m)
 	mgr.InboundTaskFn = rtr.Dispatch
 	g.rtr = rtr
 

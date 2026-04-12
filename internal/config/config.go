@@ -26,8 +26,9 @@ type GatewayConfig struct {
 }
 
 type GatewaySection struct {
-	ID       string `yaml:"id"`
-	LogLevel string `yaml:"log_level"`
+	ID        string `yaml:"id"`
+	LogLevel  string `yaml:"log_level"`
+	LogFormat string `yaml:"log_format"`
 }
 
 type TunnelSection struct {
@@ -73,6 +74,9 @@ type MetricsSection struct {
 func defaults(cfg *GatewayConfig) {
 	if cfg.Gateway.LogLevel == "" {
 		cfg.Gateway.LogLevel = "info"
+	}
+	if cfg.Gateway.LogFormat == "" {
+		cfg.Gateway.LogFormat = "text"
 	}
 	if cfg.Tunnel.PingIntervalS == 0 {
 		cfg.Tunnel.PingIntervalS = 30

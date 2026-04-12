@@ -49,7 +49,16 @@ func run() error {
 	}
 
 	// ── Structured logger ──────────────────────────────────────────────────
-	log := buildLogger(conf.Gateway.LogLevel)
+	// Env vars LOG_LEVEL and LOG_FORMAT override values from the config file.
+	logLevel := conf.Gateway.LogLevel
+	if v := os.Getenv("LOG_LEVEL"); v != "" {
+		logLevel = v
+	}
+	logFormat := conf.Gateway.LogFormat
+	if v := os.Getenv("LOG_FORMAT"); v != "" {
+		logFormat = v
+	}
+	log := buildLogger(logLevel, logFormat)
 	log.Info("go-sms-gate starting",
 		"version", version,
 		"gateway_id", conf.Gateway.ID,
@@ -74,9 +83,10 @@ func run() error {
 	return nil
 }
 
-// buildLogger constructs a JSON structured logger at the given level.
-// All log lines are suitable for ingestion by journald / Loki / Datadog.
-func buildLogger(level string) *slog.Logger {
+// buildLogger constructs a structured logger at the given level and format.
+// format must be "json" or "text" (default). JSON is suitable for log
+// aggregation systems (Loki, Datadog); text is human-readable for terminals.
+func buildLogger(level, format string) *slog.Logger {
 	var slogLevel slog.Level
 	switch level {
 	case "debug":
@@ -89,16 +99,22 @@ func buildLogger(level string) *slog.Logger {
 		slogLevel = slog.LevelInfo
 	}
 
-	h := slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{
+	opts := &slog.HandlerOptions{
 		Level:     slogLevel,
 		AddSource: slogLevel == slog.LevelDebug,
 		ReplaceAttr: func(groups []string, a slog.Attr) slog.Attr {
-			// Rename "msg" → "msg" (no-op), but normalise "time" to RFC3339 UTC.
 			if a.Key == slog.TimeKey {
 				a.Value = slog.StringValue(a.Value.Time().UTC().Format("2006-01-02T15:04:05.000Z"))
 			}
 			return a
 		},
-	})
+	}
+
+	var h slog.Handler
+	if format == "json" {
+		h = slog.NewJSONHandler(os.Stdout, opts)
+	} else {
+		h = slog.NewTextHandler(os.Stdout, opts)
+	}
 	return slog.New(h)
 }
