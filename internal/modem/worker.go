@@ -88,7 +88,11 @@ type Worker struct {
 	port       string
 	baud       int
 	gatewayID  string
-	iccid      string // set after init
+	// iccid, imsi, operator are set once in runInitSequence, before the worker
+	// is registered in the Registry.  Registry.Register/Lookup use a mutex that
+	// establishes the happens-before relationship between the write (init
+	// goroutine) and any subsequent read (tunnel/heartbeat goroutine).
+	iccid      string
 	imsi       string
 	operator   string
 
@@ -99,8 +103,12 @@ type Worker struct {
 	sent1H     atomic.Int64
 	recv1H     atomic.Int64
 
+	// lastLoopNs is updated at the end of every main-loop iteration.
+	// The watchdog goroutine uses this to detect a stuck worker (#112).
+	lastLoopNs atomic.Int64
+
 	// Channels
-	inboundCh chan InboundTask // size 64 — buffered to prevent deadlocks during URC peaks
+	inboundCh chan InboundTask
 
 	// Dependencies
 	buf        *buffer.Buffer
@@ -112,6 +120,7 @@ type Worker struct {
 	keepaliveInterval    time.Duration
 	simCapacityWarnPct   int
 	simCapacityPurgePct  int
+	stallDuration        time.Duration // how long without a loop iteration before marking Failed
 
 	logger  *slog.Logger
 	metrics *metrics.Gateway
@@ -129,12 +138,28 @@ type WorkerConfig struct {
 	KeepaliveInterval   time.Duration
 	SIMCapacityWarnPct  int
 	SIMCapacityPurgePct int
+	// InboundQueueSize is the capacity of the per-worker inbound task channel.
+	// Defaults to 64 when zero.  Increase for high-throughput deployments; the
+	// metric smsgate_tasks_dropped_total will fire whenever it fills up.
+	InboundQueueSize int
+	// StallDuration is how long the worker main loop can block a single select
+	// case handler before the watchdog goroutine declares a stall and
+	// transitions the worker to Failed.  Defaults to 5 minutes when zero.
+	StallDuration time.Duration
 	Logger              *slog.Logger
 	Metrics             *metrics.Gateway
 }
 
 // NewWorker constructs but does not start a Worker.
 func NewWorker(cfg WorkerConfig) *Worker {
+	queueSize := cfg.InboundQueueSize
+	if queueSize <= 0 {
+		queueSize = 64
+	}
+	stallDur := cfg.StallDuration
+	if stallDur <= 0 {
+		stallDur = 5 * time.Minute
+	}
 	w := &Worker{
 		port:                cfg.Port,
 		baud:                cfg.Baud,
@@ -146,9 +171,10 @@ func NewWorker(cfg WorkerConfig) *Worker {
 		keepaliveInterval:   cfg.KeepaliveInterval,
 		simCapacityWarnPct:  cfg.SIMCapacityWarnPct,
 		simCapacityPurgePct: cfg.SIMCapacityPurgePct,
+		stallDuration:       stallDur,
 		logger:              cfg.Logger,
 		metrics:             cfg.Metrics,
-		inboundCh:           make(chan InboundTask, 64),
+		inboundCh:           make(chan InboundTask, queueSize),
 	}
 	w.state.Store(int32(StateInitializing))
 	return w
@@ -213,6 +239,38 @@ func (w *Worker) Run(ctx context.Context, registry *Registry) State {
 	defer keepaliveTicker.Stop()
 	defer capacityTicker.Stop()
 
+	// Seed the stall timer so the watchdog doesn't fire during init time.
+	w.lastLoopNs.Store(time.Now().UnixNano())
+
+	// Watchdog goroutine: if the main loop hasn't completed a select-case
+	// handler in stallDuration, the worker is considered stuck and transitioned
+	// to Failed so the gateway can restart or alert (#112).
+	watchdogStop := make(chan struct{})
+	go func() {
+		ticker := time.NewTicker(w.stallDuration / 2)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-watchdogStop:
+				return
+			case <-ticker.C:
+				last := time.Unix(0, w.lastLoopNs.Load())
+				if stall := time.Since(last); stall > w.stallDuration {
+					log.Error("worker stall detected — transitioning to Failed",
+						"stall_duration", stall,
+						"threshold", w.stallDuration,
+					)
+					if w.metrics != nil {
+						w.metrics.WorkerStalls.WithLabelValues(w.iccid).Inc()
+					}
+					w.state.Store(int32(StateFailed))
+					return
+				}
+			}
+		}
+	}()
+	defer close(watchdogStop)
+
 	for {
 		select {
 		case <-ctx.Done():
@@ -237,6 +295,9 @@ func (w *Worker) Run(ctx context.Context, registry *Registry) State {
 		case <-capacityTicker.C:
 			w.checkCapacity(atSer, log)
 		}
+
+		// Stamp last-loop time so the watchdog can detect stalls.
+		w.lastLoopNs.Store(time.Now().UnixNano())
 
 		// If we entered a terminal state, exit.
 		st := State(w.state.Load())

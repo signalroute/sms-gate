@@ -28,6 +28,13 @@ type Gateway struct {
 
 	// AT command timing
 	ATCmdDurationMs *prometheus.HistogramVec // labels: command
+
+	// Reliability
+	// TasksDropped counts tasks rejected because inboundCh was full (labels: iccid).
+	TasksDropped *prometheus.CounterVec
+	// WorkerStalls counts times a worker exceeded the stall duration without
+	// completing a main-loop iteration (labels: iccid).
+	WorkerStalls *prometheus.CounterVec
 }
 
 // New creates and registers all metrics with the given registry.
@@ -78,6 +85,16 @@ func New(reg prometheus.Registerer) *Gateway {
 			Help:    "AT command round-trip time by command type.",
 			Buckets: []float64{5, 10, 25, 50, 100, 250, 500, 1000, 2500, 5000, 10000, 30000, 60000},
 		}, []string{"command"}),
+
+		TasksDropped: prometheus.NewCounterVec(prometheus.CounterOpts{
+			Name: "smsgate_tasks_dropped_total",
+			Help: "Tasks rejected because the worker inbound queue was full, by iccid.",
+		}, []string{"iccid"}),
+
+		WorkerStalls: prometheus.NewCounterVec(prometheus.CounterOpts{
+			Name: "smsgate_worker_stalls_total",
+			Help: "Times a worker exceeded the stall threshold without progress, by iccid.",
+		}, []string{"iccid"}),
 	}
 
 	reg.MustRegister(
@@ -90,6 +107,8 @@ func New(reg prometheus.Registerer) *Gateway {
 		g.TunnelState,
 		g.TunnelReconnectsTotal,
 		g.ATCmdDurationMs,
+		g.TasksDropped,
+		g.WorkerStalls,
 	)
 	return g
 }

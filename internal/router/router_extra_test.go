@@ -20,7 +20,7 @@ func TestDispatch_ICCIDVariants(t *testing.T) {
 		t.Run(fmt.Sprintf("iccid_%d", i), func(t *testing.T) {
 			iccid := fmt.Sprintf("8949020000123%07d", i)
 			reg := makeRegistry(t, iccid)
-			rtr := New(reg, func(evt any) {})
+			rtr := New(reg, func(evt any) {}, nil)
 
 			task := makeTask(tunnel.ActionSendSMS, tunnel.SendSMSPayload{
 				ICCID: iccid,
@@ -54,7 +54,7 @@ func TestDispatch_UnknownICCID(t *testing.T) {
 	for i := 0; i < 100; i++ {
 		i := i
 		t.Run(fmt.Sprintf("unknown_%d", i), func(t *testing.T) {
-			rtr := New(reg, func(evt any) {})
+			rtr := New(reg, func(evt any) {}, nil)
 			iccid := fmt.Sprintf("NOTREGISTERED%07d", i)
 			task := makeTask(tunnel.ActionSendSMS, tunnel.SendSMSPayload{
 				ICCID: iccid,
@@ -113,7 +113,7 @@ func TestDispatch_ActionVariants(t *testing.T) {
 			t.Run(fmt.Sprintf("action_%s_%d", act.name, j), func(t *testing.T) {
 				iccid := fmt.Sprintf("8949020000ACTVAR%04d", j)
 				reg := makeRegistry(t, iccid)
-				rtr := New(reg, func(evt any) {})
+				rtr := New(reg, func(evt any) {}, nil)
 
 				task := makeTask(act.name, act.payload(iccid))
 				if err := rtr.Dispatch(task); err != nil {
