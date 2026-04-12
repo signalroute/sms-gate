@@ -9,8 +9,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"log/slog"
-	"math"
-	"math/rand"
 	"net/http"
 	"sync"
 	"sync/atomic"
@@ -18,6 +16,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/gorilla/websocket"
+	"github.com/signalroute/sms-gate/internal/backoff"
 	"github.com/signalroute/sms-gate/internal/buffer"
 	"github.com/signalroute/sms-gate/internal/metrics"
 	"github.com/signalroute/sms-gate/internal/safe"
@@ -481,11 +480,7 @@ func (m *Manager) backOff(ctx context.Context) {
 	attempt := m.attempt.Add(1)
 	m.state.Store(int32(TunnelBackingOff))
 
-	base := m.cfg.ReconnectBase.Seconds()
-	maxDelay := m.cfg.ReconnectMax.Seconds()
-	delay := math.Min(base*math.Pow(2, float64(attempt-1)), maxDelay)
-	jitter := delay * 0.3 * rand.Float64()
-	total := time.Duration((delay + jitter) * float64(time.Second))
+	total := backoff.ComputeWith(int(attempt), m.cfg.ReconnectBase, m.cfg.ReconnectMax, backoff.DefaultJitter)
 
 	if attempt > 20 {
 		m.log.Error("tunnel: reconnection attempt high, backing off", "attempt", attempt, "delay", total)
