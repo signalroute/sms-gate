@@ -49,16 +49,8 @@ func run() error {
 	}
 
 	// ── Structured logger ──────────────────────────────────────────────────
-	// Env vars LOG_LEVEL and LOG_FORMAT override values from the config file.
-	logLevel := conf.Gateway.LogLevel
-	if v := os.Getenv("LOG_LEVEL"); v != "" {
-		logLevel = v
-	}
-	logFormat := conf.Gateway.LogFormat
-	if v := os.Getenv("LOG_FORMAT"); v != "" {
-		logFormat = v
-	}
-	log := buildLogger(logLevel, logFormat)
+	// conf already reflects env var overrides applied by config.Load.
+	log := buildLogger(conf.Gateway.LogLevel, conf.Gateway.LogFormat)
 	log.Info("go-sms-gate starting",
 		"version", version,
 		"gateway_id", conf.Gateway.ID,
