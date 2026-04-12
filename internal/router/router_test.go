@@ -9,6 +9,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/signalroute/sms-gate/internal/metrics"
 	"github.com/signalroute/sms-gate/internal/modem"
 	"github.com/signalroute/sms-gate/internal/tunnel"
 )
@@ -54,7 +56,7 @@ func TestRouter_Dispatch_SendSMS(t *testing.T) {
 	reg := makeRegistry(t, iccid)
 
 	var pushedEvt any
-	rtr := New(reg, func(evt any) { pushedEvt = evt })
+	rtr := New(reg, func(evt any) { pushedEvt = evt }, nil)
 
 	task := makeTask(tunnel.ActionSendSMS, tunnel.SendSMSPayload{
 		ICCID: iccid,
@@ -82,7 +84,7 @@ func TestRouter_Dispatch_SendSMS(t *testing.T) {
 func TestRouter_Dispatch_RebootModem(t *testing.T) {
 	iccid := "89490200001234567890"
 	reg := makeRegistry(t, iccid)
-	rtr := New(reg, func(evt any) {})
+	rtr := New(reg, func(evt any) {}, nil)
 
 	task := makeTask(tunnel.ActionRebootModem, tunnel.RebootModemPayload{
 		ICCID: iccid,
@@ -96,7 +98,7 @@ func TestRouter_Dispatch_RebootModem(t *testing.T) {
 func TestRouter_Dispatch_CheckSignal(t *testing.T) {
 	iccid := "89490200001234567890"
 	reg := makeRegistry(t, iccid)
-	rtr := New(reg, func(evt any) {})
+	rtr := New(reg, func(evt any) {}, nil)
 
 	task := makeTask(tunnel.ActionCheckSignal, tunnel.CheckSignalPayload{ICCID: iccid})
 	if err := rtr.Dispatch(task); err != nil {
@@ -107,7 +109,7 @@ func TestRouter_Dispatch_CheckSignal(t *testing.T) {
 func TestRouter_Dispatch_DeleteAllSMS(t *testing.T) {
 	iccid := "89490200001234567890"
 	reg := makeRegistry(t, iccid)
-	rtr := New(reg, func(evt any) {})
+	rtr := New(reg, func(evt any) {}, nil)
 
 	task := makeTask(tunnel.ActionDeleteAllSMS, tunnel.DeleteAllSMSPayload{ICCID: iccid})
 	if err := rtr.Dispatch(task); err != nil {
@@ -117,7 +119,7 @@ func TestRouter_Dispatch_DeleteAllSMS(t *testing.T) {
 
 func TestRouter_Dispatch_ModemNotFound(t *testing.T) {
 	reg := modem.NewRegistry() // empty registry
-	rtr := New(reg, func(evt any) {})
+	rtr := New(reg, func(evt any) {}, nil)
 
 	task := makeTask(tunnel.ActionSendSMS, tunnel.SendSMSPayload{
 		ICCID: "NOTREGISTERED",
@@ -136,7 +138,7 @@ func TestRouter_Dispatch_ModemNotFound(t *testing.T) {
 func TestRouter_Dispatch_ModemBusy(t *testing.T) {
 	iccid := "89490200001234567890"
 	reg := makeRegistry(t, iccid)
-	rtr := New(reg, func(evt any) {})
+	rtr := New(reg, func(evt any) {}, nil)
 
 	// Fill the worker's task channel (size 1) first.
 	w, _ := reg.Lookup(iccid)
@@ -156,7 +158,7 @@ func TestRouter_Dispatch_ModemBusy(t *testing.T) {
 
 func TestRouter_Dispatch_UnsupportedAction(t *testing.T) {
 	reg := modem.NewRegistry()
-	rtr := New(reg, func(evt any) {})
+	rtr := New(reg, func(evt any) {}, nil)
 
 	task := makeTask("UNKNOWN_ACTION", map[string]string{"iccid": "123"})
 	err := rtr.Dispatch(task)
@@ -167,7 +169,7 @@ func TestRouter_Dispatch_UnsupportedAction(t *testing.T) {
 
 func TestRouter_Dispatch_MissingICCID(t *testing.T) {
 	reg := modem.NewRegistry()
-	rtr := New(reg, func(evt any) {})
+	rtr := New(reg, func(evt any) {}, nil)
 
 	// Payload has no iccid field.
 	task := makeTask(tunnel.ActionSendSMS, map[string]string{
@@ -181,7 +183,7 @@ func TestRouter_Dispatch_MissingICCID(t *testing.T) {
 
 func TestRouter_Dispatch_InvalidPayloadJSON(t *testing.T) {
 	reg := modem.NewRegistry()
-	rtr := New(reg, func(evt any) {})
+	rtr := New(reg, func(evt any) {}, nil)
 
 	task := tunnel.Task{
 		Envelope: tunnel.Envelope{Type: tunnel.TypeTask, MessageID: "x"},
@@ -205,7 +207,7 @@ func TestRouter_AckFn_IsWiredToWorker(t *testing.T) {
 		if ack, ok := evt.(tunnel.TaskAckEvent); ok {
 			ackReceived = ack
 		}
-	})
+	}, nil)
 
 	task := makeTask(tunnel.ActionSendSMS, tunnel.SendSMSPayload{
 		ICCID: iccid, To: "+49151", Body: "ack test",
@@ -227,4 +229,47 @@ func TestRouter_AckFn_IsWiredToWorker(t *testing.T) {
 	if ackReceived.Status != tunnel.StatusSuccess {
 		t.Errorf("AckFn not wired correctly: got status %q", ackReceived.Status)
 	}
+}
+
+// TestRouter_Dispatch_ModemBusy_EmitsMetric verifies that when the worker's
+// inboundCh is full, the TasksDropped counter is incremented for the correct
+// ICCID (#11).
+func TestRouter_Dispatch_ModemBusy_EmitsMetric(t *testing.T) {
+iccid := "89490200001234567891"
+reg := makeRegistry(t, iccid)
+
+// Build a real (but isolated) metrics registry so we can read the counter.
+promReg := prometheus.NewRegistry()
+m := metrics.New(promReg)
+rtr := New(reg, func(evt any) {}, m)
+
+// Fill the single-slot worker channel.
+w, _ := reg.Lookup(iccid)
+w.TaskCh() <- modem.InboundTask{}
+
+task := makeTask(tunnel.ActionSendSMS, tunnel.SendSMSPayload{
+ICCID: iccid, To: "+49151", Body: "metric test",
+})
+_ = rtr.Dispatch(task) // expect ErrModemBusy
+
+// Gather the counter value.
+mfs, err := promReg.Gather()
+if err != nil {
+t.Fatalf("prometheus gather: %v", err)
+}
+var dropped float64
+for _, mf := range mfs {
+if mf.GetName() == "smsgate_tasks_dropped_total" {
+for _, m := range mf.GetMetric() {
+for _, lp := range m.GetLabel() {
+if lp.GetName() == "iccid" && lp.GetValue() == iccid {
+dropped = m.GetCounter().GetValue()
+}
+}
+}
+}
+}
+if dropped != 1 {
+t.Fatalf("expected smsgate_tasks_dropped_total{iccid=%q}=1, got %v", iccid, dropped)
+}
 }

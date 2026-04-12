@@ -9,6 +9,7 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/signalroute/sms-gate/internal/metrics"
 	"github.com/signalroute/sms-gate/internal/modem"
 	"github.com/signalroute/sms-gate/internal/tunnel"
 )
@@ -17,11 +18,12 @@ import (
 type Router struct {
 	registry *modem.Registry
 	pushFn   func(evt any) // push events (TASK_ACK, MODEM_ALERT) back to tunnel
+	metrics  *metrics.Gateway
 }
 
 // New creates a Router.
-func New(registry *modem.Registry, pushFn func(evt any)) *Router {
-	return &Router{registry: registry, pushFn: pushFn}
+func New(registry *modem.Registry, pushFn func(evt any), m *metrics.Gateway) *Router {
+	return &Router{registry: registry, pushFn: pushFn, metrics: m}
 }
 
 // Dispatch routes a Task to the target Modem Worker.
@@ -47,6 +49,10 @@ func (r *Router) Dispatch(task tunnel.Task) error {
 		case errors.Is(err, modem.ErrModemNotFound):
 			return fmt.Errorf("%s: %w", tunnel.ErrCodeModemNotFound, err)
 		case errors.Is(err, modem.ErrModemBusy):
+			// inboundCh full — count the drop so operators can see it in Prometheus.
+			if r.metrics != nil {
+				r.metrics.TasksDropped.WithLabelValues(iccid).Inc()
+			}
 			return fmt.Errorf("%s: %w", tunnel.ErrCodeModemBusy, err)
 		}
 		return err
