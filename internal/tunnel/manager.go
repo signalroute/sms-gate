@@ -169,6 +169,7 @@ func (m *Manager) Run(ctx context.Context) {
 		if err != nil {
 			m.log.Warn("dial failed", "attempt", m.attempt.Load(), "err", err)
 			m.metrics().TunnelReconnectsTotal.Inc()
+			m.metrics().ReconnectsTotal.Inc()
 			m.backOff(ctx)
 			continue
 		}

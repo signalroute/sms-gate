@@ -13,18 +13,32 @@ import (
 // Gateway holds all Prometheus metrics for the gateway process.
 type Gateway struct {
 	// SMS counters
-	SMSReceived  *prometheus.CounterVec   // labels: iccid
-	SMSDelivered *prometheus.CounterVec   // labels: iccid
-	SMSSent      *prometheus.CounterVec   // labels: iccid, status
+	SMSReceived  *prometheus.CounterVec // labels: iccid
+	SMSDelivered *prometheus.CounterVec // labels: iccid
+	SMSSent      *prometheus.CounterVec // labels: iccid, status
+
+	// smsgate_messages_sent_total and smsgate_messages_failed_total follow the
+	// naming convention requested by operators for alerting dashboards.
+	MessagesSentTotal   *prometheus.CounterVec // labels: iccid
+	MessagesFailedTotal *prometheus.CounterVec // labels: iccid, reason
+
 	SMSPendingCount prometheus.Gauge
 
 	// Modem state
-	ModemState      *prometheus.GaugeVec     // labels: iccid
-	ModemSignalRSSI *prometheus.GaugeVec     // labels: iccid
+	ModemState      *prometheus.GaugeVec // labels: iccid
+	ModemSignalRSSI *prometheus.GaugeVec // labels: iccid
+
+	// Active modem connections (workers in ACTIVE or EXECUTING state).
+	ActiveConnections prometheus.Gauge
 
 	// Tunnel
 	TunnelState           prometheus.Gauge
 	TunnelReconnectsTotal prometheus.Counter
+	// ReconnectsTotal mirrors TunnelReconnectsTotal with the canonical name.
+	ReconnectsTotal prometheus.Counter
+
+	// QueueDepth is the number of tasks currently sitting in all worker inbound queues.
+	QueueDepth prometheus.Gauge
 
 	// AT command timing
 	ATCmdDurationMs *prometheus.HistogramVec // labels: command
@@ -55,6 +69,16 @@ func New(reg prometheus.Registerer) *Gateway {
 			Help: "SEND_SMS tasks completed, by iccid and status.",
 		}, []string{"iccid", "status"}),
 
+		MessagesSentTotal: prometheus.NewCounterVec(prometheus.CounterOpts{
+			Name: "smsgate_messages_sent_total",
+			Help: "Total outbound SMS messages successfully sent, by iccid.",
+		}, []string{"iccid"}),
+
+		MessagesFailedTotal: prometheus.NewCounterVec(prometheus.CounterOpts{
+			Name: "smsgate_messages_failed_total",
+			Help: "Total outbound SMS messages that failed, by iccid and reason.",
+		}, []string{"iccid", "reason"}),
+
 		SMSPendingCount: prometheus.NewGauge(prometheus.GaugeOpts{
 			Name: "smsgate_sms_pending_count",
 			Help: "Current PENDING rows in SQLite buffer.",
@@ -70,6 +94,11 @@ func New(reg prometheus.Registerer) *Gateway {
 			Help: "Current RSSI in dBm, by iccid.",
 		}, []string{"iccid"}),
 
+		ActiveConnections: prometheus.NewGauge(prometheus.GaugeOpts{
+			Name: "smsgate_active_connections",
+			Help: "Number of modem workers currently in ACTIVE or EXECUTING state.",
+		}),
+
 		TunnelState: prometheus.NewGauge(prometheus.GaugeOpts{
 			Name: "smsgate_tunnel_state",
 			Help: "1 = CONNECTED, 0 = disconnected.",
@@ -78,6 +107,16 @@ func New(reg prometheus.Registerer) *Gateway {
 		TunnelReconnectsTotal: prometheus.NewCounter(prometheus.CounterOpts{
 			Name: "smsgate_tunnel_reconnects_total",
 			Help: "Total tunnel reconnection attempts.",
+		}),
+
+		ReconnectsTotal: prometheus.NewCounter(prometheus.CounterOpts{
+			Name: "smsgate_reconnects_total",
+			Help: "Total tunnel reconnection attempts (canonical name).",
+		}),
+
+		QueueDepth: prometheus.NewGauge(prometheus.GaugeOpts{
+			Name: "smsgate_queue_depth",
+			Help: "Total tasks queued across all modem worker inbound channels.",
 		}),
 
 		ATCmdDurationMs: prometheus.NewHistogramVec(prometheus.HistogramOpts{
@@ -101,11 +140,16 @@ func New(reg prometheus.Registerer) *Gateway {
 		g.SMSReceived,
 		g.SMSDelivered,
 		g.SMSSent,
+		g.MessagesSentTotal,
+		g.MessagesFailedTotal,
 		g.SMSPendingCount,
 		g.ModemState,
 		g.ModemSignalRSSI,
+		g.ActiveConnections,
 		g.TunnelState,
 		g.TunnelReconnectsTotal,
+		g.ReconnectsTotal,
+		g.QueueDepth,
 		g.ATCmdDurationMs,
 		g.TasksDropped,
 		g.WorkerStalls,

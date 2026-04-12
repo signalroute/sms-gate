@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
+	"os"
 	"sync"
 	"time"
 
@@ -97,14 +98,20 @@ func (g *Gateway) Run(ctx context.Context) error {
 
 	var wg sync.WaitGroup
 
+	// METRICS_ADDR env var overrides config value.
+	metricsAddr := g.conf.Metrics.Addr
+	if v := os.Getenv("METRICS_ADDR"); v != "" {
+		metricsAddr = v
+	}
+
 	// Start metrics HTTP server (loopback only).
 	metricsSrv := &http.Server{
-		Addr:    g.conf.Metrics.Addr,
+		Addr:    metricsAddr,
 		Handler: metrics.HandlerFor(g.promReg),
 	}
 	wg.Add(1)
 	safe.GoWithWaitGroup(log, "metrics-server", &wg, func() {
-		log.Info("metrics server listening", "addr", g.conf.Metrics.Addr)
+		log.Info("metrics server listening", "addr", metricsAddr)
 		if err := metricsSrv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 			log.Error("metrics server error", "err", err)
 		}
@@ -114,6 +121,20 @@ func (g *Gateway) Run(ctx context.Context) error {
 		shutCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
 		_ = metricsSrv.Shutdown(shutCtx)
+	})
+
+	// Scrape queue depth every 15s and publish to Prometheus.
+	safe.Go(log, "queue-depth-scraper", func() {
+		t := time.NewTicker(15 * time.Second)
+		defer t.Stop()
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case <-t.C:
+				g.metrics.QueueDepth.Set(float64(g.reg.TotalQueueDepth()))
+			}
+		}
 	})
 
 	// Build eventFn: workers push events into the tunnel manager's outbox.

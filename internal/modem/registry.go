@@ -65,6 +65,17 @@ func (r *Registry) Dispatch(iccid string, task InboundTask) error {
 	}
 }
 
+// TotalQueueDepth returns the sum of queued tasks across all registered workers.
+func (r *Registry) TotalQueueDepth() int {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	total := 0
+	for _, w := range r.workers {
+		total += w.QueueLen()
+	}
+	return total
+}
+
 // Snapshot returns a copy of the ICCID→WorkerStatus map for heartbeat reporting.
 func (r *Registry) Snapshot() map[string]WorkerStatus {
 	r.mu.RLock()

@@ -115,7 +115,7 @@ func defaults(cfg *GatewayConfig) {
 		cfg.Health.SIMCapacityPurgePct = 95
 	}
 	if cfg.Metrics.Addr == "" {
-		cfg.Metrics.Addr = "127.0.0.1:9101"
+		cfg.Metrics.Addr = ":9200"
 	}
 	for i := range cfg.Modems {
 		if cfg.Modems[i].Baud == 0 {
