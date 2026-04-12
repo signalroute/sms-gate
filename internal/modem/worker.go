@@ -216,7 +216,12 @@ func (w *Worker) Run(ctx context.Context, registry *Registry) State {
 	for {
 		select {
 		case <-ctx.Done():
+			// ── Graceful shutdown ────────────────────────────────────────
+			// Drain remaining inbound tasks and NACK them so the cloud
+			// knows they were not executed and can retry.  This prevents
+			// silent task loss on SIGTERM (issue #175).
 			registry.Deregister(w.iccid)
+			w.drainInboundCh(log)
 			return StateActive
 
 		case urc := <-atSer.URCCH:
@@ -238,6 +243,37 @@ func (w *Worker) Run(ctx context.Context, registry *Registry) State {
 		if st == StateFailed || st == StateBanned {
 			registry.Deregister(w.iccid)
 			return st
+		}
+	}
+}
+
+// ── Serial port open ──────────────────────────────────────────────────────
+
+// drainInboundCh reads all queued tasks from inboundCh and sends a NACK for
+// each one, telling the cloud server that the task was not executed and should
+// be retried.  Called on graceful shutdown to prevent silent task loss (#175).
+func (w *Worker) drainInboundCh(log *slog.Logger) {
+	for {
+		select {
+		case it := <-w.inboundCh:
+			if log != nil {
+				log.Warn("shutdown: NACKing unexecuted task",
+					"task_id", it.Task.MessageID,
+					"action", it.Task.Action,
+				)
+			}
+			if it.AckFn != nil {
+				it.AckFn(tunnel.TaskAckEvent{
+					Envelope: tunnel.NewEnvelopeFrom(tunnel.TypeTaskAck, it.Task.MessageID),
+					Status:   tunnel.StatusFailed,
+					Error: &tunnel.TaskError{
+						Code:    tunnel.ErrCodeModemUnresponsive,
+						Message: "gateway shutting down — task was not executed",
+					},
+				})
+			}
+		default:
+			return
 		}
 	}
 }

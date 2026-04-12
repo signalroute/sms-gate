@@ -166,7 +166,22 @@ func (g *Gateway) Run(ctx context.Context) error {
 		log.Info("tunnel manager exited")
 	})
 
-	wg.Wait()
+	// Wait for all goroutines to finish, with a shutdown timeout (#175, #176).
+	// If workers take longer than shutdownTimeout, log a warning and proceed
+	// with buffer close so we don't hang the process indefinitely.
+	const shutdownTimeout = 30 * time.Second
+	done := make(chan struct{})
+	safe.Go(log, "shutdown-watcher", func() {
+		wg.Wait()
+		close(done)
+	})
+	select {
+	case <-done:
+		log.Info("all goroutines exited cleanly")
+	case <-time.After(shutdownTimeout):
+		log.Warn("shutdown timeout reached; some goroutines may still be running",
+			"timeout", shutdownTimeout)
+	}
 	return g.buf.Close()
 }
 
