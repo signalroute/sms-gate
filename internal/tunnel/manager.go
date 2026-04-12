@@ -5,6 +5,7 @@ package tunnel
 
 import (
 	"context"
+	"crypto/tls"
 	"encoding/json"
 	"fmt"
 	"log/slog"
@@ -88,6 +89,10 @@ type ManagerConfig struct {
 	StatusFn         func() []ModemStatus // called for HELLO and heartbeats
 	Logger           *slog.Logger
 	Metrics          *metrics.Gateway
+	// TLSSkipVerify disables server certificate verification.
+	// INSECURE — only set this in local development environments.
+	// The gateway logs a prominent warning when this is true (#177).
+	TLSSkipVerify bool
 }
 
 // Manager manages the WebSocket tunnel lifecycle.
@@ -194,6 +199,16 @@ func (m *Manager) dial(ctx context.Context) (*websocket.Conn, error) {
 
 	dialer := websocket.Dialer{
 		HandshakeTimeout: 15 * time.Second,
+	}
+
+	if m.cfg.TLSSkipVerify {
+		// Log a loud warning so it's impossible to miss in production logs.
+		m.log.Warn("⚠ TLS verification disabled — INSECURE, do NOT use in production",
+			"setting", "tls_skip_verify=true",
+		)
+		dialer.TLSClientConfig = &tls.Config{
+			InsecureSkipVerify: true, //nolint:gosec // intentional dev-only opt-in
+		}
 	}
 
 	conn, resp, err := dialer.DialContext(ctx, m.cfg.URL, hdr)
