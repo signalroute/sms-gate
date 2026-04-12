@@ -6,6 +6,7 @@ package gateway
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"log/slog"
 	"net/http"
@@ -26,15 +27,16 @@ const agentVersion = "2.0.0"
 
 // Gateway is the top-level runtime object.
 type Gateway struct {
-	conf    *cfg.GatewayConfig
-	log     *slog.Logger
-	metrics *metrics.Gateway
-	buf     *buffer.Buffer
-	reg     *modem.Registry
-	limiter *modem.RateLimiterRegistry
-	mgr     *tunnel.Manager
-	rtr     *router.Router
-	promReg *prometheus.Registry
+	conf      *cfg.GatewayConfig
+	log       *slog.Logger
+	metrics   *metrics.Gateway
+	buf       *buffer.Buffer
+	reg       *modem.Registry
+	limiter   *modem.RateLimiterRegistry
+	mgr       *tunnel.Manager
+	rtr       *router.Router
+	promReg   *prometheus.Registry
+	startTime time.Time
 }
 
 // New constructs the Gateway, opening the SQLite buffer and wiring all subsystems.
@@ -52,13 +54,14 @@ func New(conf *cfg.GatewayConfig, log *slog.Logger) (*Gateway, error) {
 	limiter := modem.NewRateLimiterRegistry()
 
 	g := &Gateway{
-		conf:    conf,
-		log:     log,
-		metrics: m,
-		buf:     buf,
-		reg:     reg,
-		limiter: limiter,
-		promReg: promReg,
+		conf:      conf,
+		log:       log,
+		metrics:   m,
+		buf:       buf,
+		reg:       reg,
+		limiter:   limiter,
+		promReg:   promReg,
+		startTime: time.Now(),
 	}
 
 	// Tunnel Manager — eventFn is wired below after rtr is built.
@@ -97,11 +100,14 @@ func (g *Gateway) Run(ctx context.Context) error {
 
 	var wg sync.WaitGroup
 
-	// Start metrics HTTP server — addr comes from config (which already reflects
-	// the METRICS_ADDR env var override applied by config.Load).
+	// Start metrics+health HTTP server — addr comes from config (which already
+	// reflects the METRICS_ADDR env var override applied by config.Load).
+	mux := http.NewServeMux()
+	mux.Handle("/metrics", metrics.HandlerFor(g.promReg))
+	mux.HandleFunc("/health", g.healthHandler)
 	metricsSrv := &http.Server{
 		Addr:    g.conf.Metrics.Addr,
-		Handler: metrics.HandlerFor(g.promReg),
+		Handler: mux,
 	}
 	wg.Add(1)
 	safe.GoWithWaitGroup(log, "metrics-server", &wg, func() {
@@ -218,4 +224,40 @@ func (g *Gateway) modemStatuses() []tunnel.ModemStatus {
 		})
 	}
 	return out
+}
+
+// healthResponse is the JSON body returned by GET /health.
+type healthResponse struct {
+	Status  string `json:"status"`
+	Version string `json:"version"`
+	Uptime  string `json:"uptime"`
+}
+
+// healthHandler serves GET /health.
+// Returns 200 {"status":"ok",...} when the tunnel is connected, 503 otherwise.
+func (g *Gateway) healthHandler(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	state := g.mgr.State()
+	uptime := time.Since(g.startTime).Round(time.Second).String()
+
+	resp := healthResponse{
+		Version: agentVersion,
+		Uptime:  uptime,
+	}
+
+	statusCode := http.StatusOK
+	if state == tunnel.TunnelConnected {
+		resp.Status = "ok"
+	} else {
+		resp.Status = "degraded"
+		statusCode = http.StatusServiceUnavailable
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(statusCode)
+	_ = json.NewEncoder(w).Encode(resp)
 }

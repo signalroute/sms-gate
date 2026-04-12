@@ -526,3 +526,8 @@ const ErrModemNotFoundMsg = "modem not found: ICCID not in registry"
 func (m *Manager) metrics() *metrics.Gateway {
 	return m.cfg.Metrics
 }
+
+// State returns the current tunnel connection state.
+func (m *Manager) State() TunnelState {
+	return TunnelState(m.state.Load())
+}
