@@ -18,6 +18,7 @@ import (
 	"github.com/signalroute/sms-gate/internal/metrics"
 	"github.com/signalroute/sms-gate/internal/modem"
 	"github.com/signalroute/sms-gate/internal/router"
+	"github.com/signalroute/sms-gate/internal/safe"
 	"github.com/signalroute/sms-gate/internal/tunnel"
 )
 
@@ -102,19 +103,18 @@ func (g *Gateway) Run(ctx context.Context) error {
 		Handler: metrics.HandlerFor(g.promReg),
 	}
 	wg.Add(1)
-	go func() {
-		defer wg.Done()
+	safe.GoWithWaitGroup(log, "metrics-server", &wg, func() {
 		log.Info("metrics server listening", "addr", g.conf.Metrics.Addr)
 		if err := metricsSrv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 			log.Error("metrics server error", "err", err)
 		}
-	}()
-	go func() {
+	})
+	safe.Go(log, "metrics-shutdown", func() {
 		<-ctx.Done()
 		shutCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
 		_ = metricsSrv.Shutdown(shutCtx)
-	}()
+	})
 
 	// Build eventFn: workers push events into the tunnel manager's outbox.
 	// Alerts also log at ERROR level.
@@ -153,20 +153,18 @@ func (g *Gateway) Run(ctx context.Context) error {
 		})
 
 		wg.Add(1)
-		go func() {
-			defer wg.Done()
+		safe.GoWithWaitGroup(log, "modem-worker-"+mc.Port, &wg, func() {
 			finalState := w.Run(ctx, g.reg)
 			log.Info("worker exited", "port", mc.Port, "final_state", finalState)
-		}()
+		})
 	}
 
 	// Start tunnel manager.
 	wg.Add(1)
-	go func() {
-		defer wg.Done()
+	safe.GoWithWaitGroup(log, "tunnel-manager", &wg, func() {
 		g.mgr.Run(ctx)
 		log.Info("tunnel manager exited")
-	}()
+	})
 
 	wg.Wait()
 	return g.buf.Close()
