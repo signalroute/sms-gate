@@ -78,11 +78,21 @@ func IsGSM7(s string) bool {
 // ── PDU unpacking / packing ────────────────────────────────────────────────
 
 // unpackGSM7 unpacks nChars 7-bit characters from packed data.
+// If nChars exceeds what data can hold, it is clamped to prevent
+// an index out-of-range panic on malformed PDUs (issue #192).
 func unpackGSM7(data []byte, nChars int) []byte {
+	// Maximum septets that can be extracted from len(data) bytes.
+	maxChars := (len(data) * 8) / 7
+	if nChars > maxChars {
+		nChars = maxChars
+	}
 	out := make([]byte, nChars)
 	for i := 0; i < nChars; i++ {
 		bytePos := (i * 7) / 8
 		bitPos := uint((i * 7) % 8)
+		if bytePos >= len(data) {
+			break
+		}
 		b := (data[bytePos] >> bitPos) & 0x7F
 		if bitPos > 1 && bytePos+1 < len(data) {
 			b |= (data[bytePos+1] << (8 - bitPos)) & 0x7F
@@ -108,15 +118,20 @@ func packGSM7(chars []byte) []byte {
 }
 
 // decodeGSM7Text converts GSM7 code points to a UTF-8 string.
+// Unknown extension codes (ESC followed by an unrecognised byte) are
+// substituted with a space rather than silently dropped.
 func decodeGSM7Text(codes []byte) string {
 	var sb strings.Builder
 	for i := 0; i < len(codes); i++ {
 		c := codes[i]
-		if c == 0x1B { // escape
+		if c == 0x1B { // escape — next byte is an extension table code
 			if i+1 < len(codes) {
 				i++
 				if r, ok := gsm7Extension[codes[i]]; ok {
 					sb.WriteRune(r)
+				} else {
+					// Unknown extension: substitute space per 3GPP TS 23.038 §6.2.1
+					sb.WriteByte(' ')
 				}
 			}
 			continue
@@ -368,7 +383,10 @@ func DecodePDU(hexStr string) (*DecodedSMS, error) {
 	pos += oaBytes
 
 	// PID
-	pos++ // skip
+	if pos >= len(raw) {
+		return nil, fmt.Errorf("PDU truncated at PID")
+	}
+	pos++ // skip PID
 
 	// DCS
 	if pos >= len(raw) {
@@ -395,6 +413,37 @@ func DecodePDU(hexStr string) (*DecodedSMS, error) {
 	enc := dcsEncoding(dcs)
 	var body string
 	ud := raw[pos:]
+
+	// User Data Header: present when UDHI bit (bit 6) of the PDU type byte is set.
+	// The first byte of UD is the UDH length (excluding the length byte itself).
+	// Validate it before using it to avoid slice-bounds panics (issue #167).
+	udhi := (pduType >> 6) & 0x01
+	if udhi == 1 {
+		if len(ud) == 0 {
+			return nil, fmt.Errorf("PDU truncated: UDHI set but UD is empty")
+		}
+		udhLen := int(ud[0]) + 1 // +1 includes the length byte itself
+		if udhLen > len(ud) {
+			return nil, fmt.Errorf("invalid UDH: length %d exceeds UD length %d", udhLen, len(ud))
+		}
+		if enc == "GSM7" {
+			// UDH occupies whole septets; calculate padding to next septet boundary.
+			udhSeptets := (udhLen*8 + 6) / 7
+			ud = ud[udhLen:]
+			if udhSeptets >= udl {
+				udl = 0
+			} else {
+				udl -= udhSeptets
+			}
+		} else {
+			ud = ud[udhLen:]
+			udl -= udhLen
+			if udl < 0 {
+				udl = 0
+			}
+		}
+	}
+
 	switch enc {
 	case "GSM7":
 		codes := unpackGSM7(ud, udl)
