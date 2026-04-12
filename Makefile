@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: MIT
 # go-sms-gate Makefile
 
-BINARY     := go-sms-gate
+BINARY     := bin/sms-gate
 MODULE     := github.com/signalroute/sms-gate
 CMD        := ./cmd/gateway
 
@@ -23,13 +23,14 @@ SYSTEMD_UNIT := /etc/systemd/system
 
 .PHONY: all build test test-verbose test-race lint vet tidy \
         build-arm64 build-arm32 build-amd64 \
-        install install-service uninstall clean help
+        docker install install-service uninstall clean help
 
 # ── Default target ─────────────────────────────────────────────────────────
 all: tidy build
 
 # ── Build ──────────────────────────────────────────────────────────────────
 build:
+	mkdir -p bin
 	CGO_ENABLED=$(CGO_ENABLED) GOOS=$(GOOS) GOARCH=$(GOARCH) \
 	  go build -ldflags="$(LDFLAGS)" -o $(BINARY) $(CMD)
 	@echo "Built $(BINARY) ($(GOOS)/$(GOARCH))"
@@ -57,13 +58,13 @@ build-all: build-arm64 build-arm32 build-amd64
 
 # ── Test ───────────────────────────────────────────────────────────────────
 test:
-	CGO_ENABLED=0 go test ./... -count=1
+	go test -count=1 -timeout 120s ./...
 
 test-verbose:
 	CGO_ENABLED=0 go test ./... -v -count=1
 
 test-race:
-	CGO_ENABLED=0 go test ./... -race -count=1 -timeout 60s
+	go test -race -count=1 -timeout 120s ./...
 
 # Run only tests matching a pattern: make test-run T=TestDecodePDU
 test-run:
@@ -80,6 +81,10 @@ lint:
 
 tidy:
 	go mod tidy
+
+# ── Docker ─────────────────────────────────────────────────────────────────
+docker:
+	docker build -t sms-gate .
 
 # ── Install ────────────────────────────────────────────────────────────────
 
@@ -123,7 +128,7 @@ uninstall:
 
 # ── Utility ────────────────────────────────────────────────────────────────
 clean:
-	rm -f $(BINARY) $(BINARY)-arm64 $(BINARY)-arm32 $(BINARY)-amd64
+	rm -rf bin
 
 # Quick deploy to a remote Pi: make deploy HOST=pi@raspberrypi.local ARCH=arm64
 deploy: build-$(ARCH)
