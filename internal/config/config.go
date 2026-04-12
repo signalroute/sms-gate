@@ -151,6 +151,8 @@ func expandEnv(s string) (string, error) {
 
 // Load reads and validates the configuration from the given YAML file path.
 // Environment variable references in the form ${VAR_NAME} are expanded.
+// After loading, direct env vars (e.g. GATEWAY_ID, TUNNEL_URL) override the
+// corresponding config file values — no ${VAR} syntax required in the YAML.
 func Load(path string) (*GatewayConfig, error) {
 	raw, err := os.ReadFile(path)
 	if err != nil {
@@ -169,12 +171,39 @@ func Load(path string) (*GatewayConfig, error) {
 	}
 
 	defaults(&cfg)
+	applyEnvOverrides(&cfg)
 
 	if err := validate(&cfg); err != nil {
 		return nil, fmt.Errorf("invalid config: %w", err)
 	}
 
 	return &cfg, nil
+}
+
+// applyEnvOverrides reads well-known environment variables and overwrites the
+// corresponding fields in cfg.  This lets operators inject secrets (TUNNEL_TOKEN)
+// or adjust runtime settings without editing the YAML file.
+//
+// Precedence: env var > config file value > built-in default.
+func applyEnvOverrides(cfg *GatewayConfig) {
+	if v := os.Getenv("GATEWAY_ID"); v != "" {
+		cfg.Gateway.ID = v
+	}
+	if v := os.Getenv("LOG_LEVEL"); v != "" {
+		cfg.Gateway.LogLevel = v
+	}
+	if v := os.Getenv("LOG_FORMAT"); v != "" {
+		cfg.Gateway.LogFormat = v
+	}
+	if v := os.Getenv("TUNNEL_URL"); v != "" {
+		cfg.Tunnel.URL = v
+	}
+	if v := os.Getenv("TUNNEL_TOKEN"); v != "" {
+		cfg.Tunnel.Token = v
+	}
+	if v := os.Getenv("METRICS_ADDR"); v != "" {
+		cfg.Metrics.Addr = v
+	}
 }
 
 func validate(cfg *GatewayConfig) error {

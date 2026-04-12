@@ -377,3 +377,41 @@ gateway: {this is: [not: valid yaml
 		t.Error("expected error for invalid YAML, got nil")
 	}
 }
+
+func TestLoad_EnvVarOverrides(t *testing.T) {
+path := writeConfig(t, `
+gateway:
+  id: from-file
+  log_level: info
+tunnel:
+  url: ws://from-file
+  token: file-token
+modems:
+  - port: /dev/ttyUSB0
+`)
+t.Setenv("GATEWAY_ID", "from-env")
+t.Setenv("TUNNEL_URL", "ws://from-env")
+t.Setenv("TUNNEL_TOKEN", "env-token")
+t.Setenv("LOG_LEVEL", "debug")
+t.Setenv("LOG_FORMAT", "json")
+t.Setenv("METRICS_ADDR", ":9999")
+
+cfg, err := Load(path)
+if err != nil {
+t.Fatalf("Load: %v", err)
+}
+
+checks := []struct{ name, got, want string }{
+{"gateway.id", cfg.Gateway.ID, "from-env"},
+{"tunnel.url", cfg.Tunnel.URL, "ws://from-env"},
+{"tunnel.token", cfg.Tunnel.Token, "env-token"},
+{"log_level", cfg.Gateway.LogLevel, "debug"},
+{"log_format", cfg.Gateway.LogFormat, "json"},
+{"metrics.addr", cfg.Metrics.Addr, ":9999"},
+}
+for _, c := range checks {
+if c.got != c.want {
+t.Errorf("%s: got %q, want %q", c.name, c.got, c.want)
+}
+}
+}

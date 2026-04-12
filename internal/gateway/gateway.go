@@ -9,7 +9,6 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
-	"os"
 	"sync"
 	"time"
 
@@ -98,20 +97,15 @@ func (g *Gateway) Run(ctx context.Context) error {
 
 	var wg sync.WaitGroup
 
-	// METRICS_ADDR env var overrides config value.
-	metricsAddr := g.conf.Metrics.Addr
-	if v := os.Getenv("METRICS_ADDR"); v != "" {
-		metricsAddr = v
-	}
-
-	// Start metrics HTTP server (loopback only).
+	// Start metrics HTTP server — addr comes from config (which already reflects
+	// the METRICS_ADDR env var override applied by config.Load).
 	metricsSrv := &http.Server{
-		Addr:    metricsAddr,
+		Addr:    g.conf.Metrics.Addr,
 		Handler: metrics.HandlerFor(g.promReg),
 	}
 	wg.Add(1)
 	safe.GoWithWaitGroup(log, "metrics-server", &wg, func() {
-		log.Info("metrics server listening", "addr", metricsAddr)
+		log.Info("metrics server listening", "addr", g.conf.Metrics.Addr)
 		if err := metricsSrv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 			log.Error("metrics server error", "err", err)
 		}
