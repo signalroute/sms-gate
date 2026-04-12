@@ -19,6 +19,7 @@ import (
 	"github.com/gorilla/websocket"
 	"github.com/signalroute/sms-gate/internal/buffer"
 	"github.com/signalroute/sms-gate/internal/metrics"
+	"github.com/signalroute/sms-gate/internal/safe"
 )
 
 // NewEnvelope creates a new message envelope with a fresh UUID and current timestamp.
@@ -225,23 +226,21 @@ func (m *Manager) runSession(ctx context.Context, conn *websocket.Conn) {
 
 	// Writer goroutine.
 	wg.Add(1)
-	go func() {
-		defer wg.Done()
+	safe.GoWithWaitGroup(m.log, "tunnel-writer", &wg, func() {
 		m.writer(sessionCtx, conn, cancel)
-	}()
+	})
 
 	// Reader goroutine.
 	wg.Add(1)
-	go func() {
-		defer wg.Done()
+	safe.GoWithWaitGroup(m.log, "tunnel-reader", &wg, func() {
 		m.reader(sessionCtx, conn, cancel)
-	}()
+	})
 
 	// Flush offline buffer on connect.
-	go m.flushBuffer(sessionCtx, conn)
+	safe.Go(m.log, "tunnel-flush-on-connect", func() { m.flushBuffer(sessionCtx, conn) })
 
 	// Periodic flush (defensive replay for missed ACKs).
-	go func() {
+	safe.Go(m.log, "tunnel-periodic-flush", func() {
 		ticker := time.NewTicker(m.cfg.FlushInterval)
 		defer ticker.Stop()
 		for {
@@ -252,10 +251,10 @@ func (m *Manager) runSession(ctx context.Context, conn *websocket.Conn) {
 				m.flushBuffer(sessionCtx, conn)
 			}
 		}
-	}()
+	})
 
 	// Purge old delivered rows periodically.
-	go func() {
+	safe.Go(m.log, "tunnel-purge", func() {
 		ticker := time.NewTicker(24 * time.Hour)
 		defer ticker.Stop()
 		for {
@@ -266,7 +265,7 @@ func (m *Manager) runSession(ctx context.Context, conn *websocket.Conn) {
 				_, _ = m.cfg.Buf.Purge(m.cfg.RetentionDays)
 			}
 		}
-	}()
+	})
 
 	wg.Wait()
 }
