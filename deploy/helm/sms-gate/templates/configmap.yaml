@@ -1,0 +1,14 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "sms-gate.fullname" . }}-config
+  labels:
+    {{- include "sms-gate.labels" . | nindent 4 }}
+data:
+  config.yaml: |
+    log_level: {{ .Values.config.logLevel }}
+    tunnel:
+      url: {{ .Values.config.tunnel.url | quote }}
+      token: ${GATEWAY_TOKEN}
+    metrics:
+      addr: {{ .Values.config.metrics.addr | quote }}

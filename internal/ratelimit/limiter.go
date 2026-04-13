@@ -74,6 +74,7 @@ func (b *bucket) Allow() (ok bool, retryAfter time.Duration) {
 }
 
 // Limiter holds per-ICCID token buckets and enforces the rate limit.
+// For a type-safe generic version, see Registry[K].
 type Limiter struct {
 	mu     sync.Mutex
 	perMin int

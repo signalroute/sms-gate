@@ -5,6 +5,8 @@
 // per ITU-T V.250 and 3GPP TS 23.038 / 27.007.
 package at
 
+//go:generate go run gen_gsm7.go
+
 import (
 	"crypto/sha256"
 	"encoding/binary"

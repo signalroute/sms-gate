@@ -1,0 +1,14 @@
+apiVersion: v2
+name: sms-gate
+description: Headless SMS gateway daemon — multiplexes USB modems behind NAT
+type: application
+version: 0.1.0
+appVersion: "0.1.0"
+keywords:
+  - sms
+  - gateway
+  - modem
+  - at-commands
+maintainers:
+  - name: Signalroute
+    url: https://github.com/signalroute
