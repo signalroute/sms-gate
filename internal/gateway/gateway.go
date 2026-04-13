@@ -138,6 +138,7 @@ func (g *Gateway) Run(ctx context.Context) error {
 				if pc, err := g.buf.PendingCount(); err == nil {
 					g.metrics.BufferPendingCount.Set(float64(pc))
 				}
+				g.metrics.OutboxDepth.Set(float64(g.mgr.OutboxLen()))
 			}
 		}
 	})

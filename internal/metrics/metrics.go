@@ -71,6 +71,13 @@ type Gateway struct {
 
 	// BufferPendingCount tracks the number of pending rows in the SQLite buffer.
 	BufferPendingCount prometheus.Gauge
+
+	// OutboxDepth is the number of events waiting in the tunnel outbox channel.
+	OutboxDepth prometheus.Gauge
+
+	// TaskRoundTripDuration tracks the end-to-end time from task dispatch
+	// to ACK being sent back, in seconds (labels: action).
+	TaskRoundTripDuration *prometheus.HistogramVec
 }
 
 // New creates and registers all metrics with the given registry.
@@ -182,6 +189,17 @@ func New(reg prometheus.Registerer) *Gateway {
 			Help: "Number of pending rows in the SQLite buffer awaiting flush.",
 		}),
 
+		OutboxDepth: prometheus.NewGauge(prometheus.GaugeOpts{
+			Name: "smsgate_outbox_depth",
+			Help: "Number of events waiting in the tunnel outbox channel.",
+		}),
+
+		TaskRoundTripDuration: prometheus.NewHistogramVec(prometheus.HistogramOpts{
+			Name:    "smsgate_task_round_trip_seconds",
+			Help:    "End-to-end task execution time from dispatch to ACK, by action.",
+			Buckets: []float64{0.01, 0.05, 0.1, 0.25, 0.5, 1.0, 2.5, 5.0, 10.0, 30.0},
+		}, []string{"action"}),
+
 		ATCommandDuration: prometheus.NewHistogramVec(prometheus.HistogramOpts{
 			Name:    "smsgate_at_command_duration_seconds",
 			Help:    "AT command round-trip latency in seconds, by command.",
@@ -217,6 +235,8 @@ func New(reg prometheus.Registerer) *Gateway {
 		g.ModemSignalStrength,
 		g.ActiveSerialPorts,
 		g.BufferPendingCount,
+		g.OutboxDepth,
+		g.TaskRoundTripDuration,
 		g.ATCommandDuration,
 		g.ModemInitDuration,
 	)

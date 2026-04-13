@@ -364,6 +364,21 @@ func (s *Serializer) EnableCMTIURCs() error {
 	return err
 }
 
+// ReadCapabilities reads modem capabilities via AT+GCAP.
+// Returns the raw capability string, e.g. "+GCAP: +CGSM,+DS,+ES".
+func (s *Serializer) ReadCapabilities() (string, error) {
+	lines, err := s.Execute("AT+GCAP", TimeoutStd)
+	if err != nil {
+		return "", err
+	}
+	for _, l := range lines {
+		if strings.HasPrefix(l, "+GCAP:") {
+			return strings.TrimSpace(strings.TrimPrefix(l, "+GCAP:")), nil
+		}
+	}
+	return "", fmt.Errorf("no +GCAP in response: %w", ErrMalformedResponse)
+}
+
 // ReadICCID reads the SIM ICCID. Tries AT+CCID? then AT+ICCID? for compatibility.
 func (s *Serializer) ReadICCID() (string, error) {
 	for _, cmd := range []string{"AT+CCID?", "AT+ICCID?", "AT+QCCID"} {

@@ -443,6 +443,14 @@ func (w *Worker) runInitSequence(s *at.Serializer, log *slog.Logger) error {
 		{"disable echo", func() error { return s.DisableEcho() }},
 		{"PDU mode", func() error { return s.SetPDUMode() }},
 		{"enable CMTI URCs", func() error { return s.EnableCMTIURCs() }},
+		{"read capabilities", func() error {
+			caps, err := s.ReadCapabilities()
+			if err != nil {
+				return err // non-fatal
+			}
+			log.Info("modem capabilities", "gcap", caps)
+			return nil
+		}},
 		{"read ICCID", func() error {
 			iccid, err := retryNVal(3, s.ReadICCID)
 			if err != nil {
@@ -475,7 +483,7 @@ func (w *Worker) runInitSequence(s *at.Serializer, log *slog.Logger) error {
 	for _, step := range steps {
 		log.Debug("init step", "step", step.name)
 		if err := step.fn(); err != nil {
-			if step.name == "read IMSI" || step.name == "read operator" {
+			if step.name == "read IMSI" || step.name == "read operator" || step.name == "read capabilities" {
 				log.Warn("non-fatal init step failed", "step", step.name, "err", err)
 				continue
 			}
@@ -581,7 +589,8 @@ func (w *Worker) executeTask(ctx context.Context, s *at.Serializer, it InboundTa
 	task := it.Task
 	log = log.With("task_id", task.MessageID, "action", task.Action)
 	log.Info("executing task")
-	w.lastActivityNs.Store(time.Now().UnixNano())
+	taskStart := time.Now()
+	w.lastActivityNs.Store(taskStart.UnixNano())
 
 	prev := State(w.state.Load())
 	w.state.Store(int32(StateExecuting))
@@ -604,6 +613,9 @@ func (w *Worker) executeTask(ctx context.Context, s *at.Serializer, it InboundTa
 	default:
 		taskErr = &tunnel.TaskError{Code: tunnel.ErrCodeUnsupportedAction, Message: fmt.Sprintf("unknown action: %q", task.Action)}
 	}
+
+	// Record task round-trip latency (#124).
+	w.metrics.TaskRoundTripDuration.WithLabelValues(task.Action).Observe(time.Since(taskStart).Seconds())
 
 	status := tunnel.StatusSuccess
 	if taskErr != nil {
