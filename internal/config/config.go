@@ -228,6 +228,9 @@ func validate(cfg *GatewayConfig) error {
 	if cfg.Tunnel.URL == "" {
 		return fmt.Errorf("tunnel.url must not be empty")
 	}
+	if !strings.HasPrefix(cfg.Tunnel.URL, "ws://") && !strings.HasPrefix(cfg.Tunnel.URL, "wss://") {
+		return fmt.Errorf("tunnel.url must start with ws:// or wss://, got %q", cfg.Tunnel.URL)
+	}
 	if cfg.Tunnel.Token == "" {
 		return fmt.Errorf("tunnel.token must not be empty")
 	}
