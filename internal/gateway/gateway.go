@@ -154,29 +154,29 @@ func (g *Gateway) Run(ctx context.Context) error {
 	// Start one modem worker per configured port.
 	for _, mc := range g.conf.Modems {
 		mc := mc // capture
-		w := modem.NewWorker(modem.WorkerConfig{
-			Port:      mc.Port,
-			Baud:      mc.Baud,
-			GatewayID: g.conf.Gateway.ID,
-			Buf:       g.buf,
-			Limiter:   g.limiter,
-			RateConfig: modem.RateLimitConfig{
-				PerMin:  mc.RateLimit.PerMin,
-				PerHour: mc.RateLimit.PerHour,
-				PerDay:  mc.RateLimit.PerDay,
-			},
-			EventFn:             eventFn,
-			KeepaliveInterval:   time.Duration(g.conf.Health.KeepaliveIntervalS) * time.Second,
-			SIMCapacityWarnPct:  g.conf.Health.SIMCapacityWarnPct,
-			SIMCapacityPurgePct: g.conf.Health.SIMCapacityPurgePct,
-			Logger:              g.log,
-			Metrics:             g.metrics,
-		})
 
 		wg.Add(1)
 		safe.GoWithWaitGroup(log, "modem-worker-"+mc.Port, &wg, func() {
-			finalState := w.Run(ctx, g.reg)
-			log.Info("worker exited", "port", mc.Port, "final_state", finalState)
+			modem.RunSupervised(ctx, func() *modem.Worker {
+				return modem.NewWorker(modem.WorkerConfig{
+					Port:      mc.Port,
+					Baud:      mc.Baud,
+					GatewayID: g.conf.Gateway.ID,
+					Buf:       g.buf,
+					Limiter:   g.limiter,
+					RateConfig: modem.RateLimitConfig{
+						PerMin:  mc.RateLimit.PerMin,
+						PerHour: mc.RateLimit.PerHour,
+						PerDay:  mc.RateLimit.PerDay,
+					},
+					EventFn:             eventFn,
+					KeepaliveInterval:   time.Duration(g.conf.Health.KeepaliveIntervalS) * time.Second,
+					SIMCapacityWarnPct:  g.conf.Health.SIMCapacityWarnPct,
+					SIMCapacityPurgePct: g.conf.Health.SIMCapacityPurgePct,
+					Logger:              g.log,
+					Metrics:             g.metrics,
+				})
+			}, g.reg, g.metrics, g.log)
 		})
 	}
 
