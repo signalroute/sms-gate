@@ -27,6 +27,7 @@ var validE164 = regexp.MustCompile(`^\+[1-9]\d{6,14}$`)
 
 // ── Worker state ──────────────────────────────────────────────────────────
 
+// State represents the lifecycle state of a modem Worker.
 type State int32
 
 const (
@@ -71,6 +72,7 @@ type InboundTask struct {
 
 // ── WorkerStatus is a snapshot for heartbeats ─────────────────────────────
 
+// WorkerStatus is a JSON-serializable snapshot of modem state for heartbeats and the /modems API.
 type WorkerStatus struct {
 	ICCID        string `json:"iccid"`
 	Port         string `json:"port"`
@@ -133,6 +135,7 @@ type Worker struct {
 	simCapacityPurgePct  int
 	stallDuration        time.Duration // how long without a loop iteration before marking Failed
 	signalPollInterval   time.Duration // how often to poll AT+CSQ
+	portOpenRetries      int
 
 	logger  *slog.Logger
 	metrics *metrics.Gateway
@@ -162,6 +165,9 @@ type WorkerConfig struct {
 	// SignalPollInterval controls how often AT+CSQ is polled to update the
 	// modem_signal_strength gauge.  Defaults to 30 seconds when zero.
 	SignalPollInterval time.Duration
+	// PortOpenRetries is the number of serial port open attempts.
+	// Defaults to 3 when zero.  Increase for USB hubs with slow enumeration (#39).
+	PortOpenRetries int
 	Logger              *slog.Logger
 	Metrics             *metrics.Gateway
 }
@@ -180,6 +186,10 @@ func NewWorker(cfg WorkerConfig) *Worker {
 	if signalPollInterval <= 0 {
 		signalPollInterval = 30 * time.Second
 	}
+	portRetries := cfg.PortOpenRetries
+	if portRetries <= 0 {
+		portRetries = 3
+	}
 	w := &Worker{
 		port:                cfg.Port,
 		baud:                cfg.Baud,
@@ -194,6 +204,7 @@ func NewWorker(cfg WorkerConfig) *Worker {
 		simCapacityPurgePct: cfg.SIMCapacityPurgePct,
 		stallDuration:       stallDur,
 		signalPollInterval:  signalPollInterval,
+		portOpenRetries:     portRetries,
 		logger:              cfg.Logger,
 		metrics:             cfg.Metrics,
 		inboundCh:           make(chan InboundTask, queueSize),
@@ -437,7 +448,7 @@ func (w *Worker) openPort() (serial.Port, error) {
 		Parity:   serial.NoParity,
 		StopBits: serial.OneStopBit,
 	}
-	for attempt := 1; attempt <= 3; attempt++ {
+	for attempt := 1; attempt <= w.portOpenRetries; attempt++ {
 		p, err := serial.Open(w.port, mode)
 		if err == nil {
 			return p, nil
@@ -445,7 +456,7 @@ func (w *Worker) openPort() (serial.Port, error) {
 		w.logger.Warn("serial open failed", "port", w.port, "attempt", attempt, "err", err)
 		time.Sleep(time.Duration(attempt) * time.Second)
 	}
-	return nil, fmt.Errorf("could not open %s after 3 attempts", w.port)
+	return nil, fmt.Errorf("could not open %s after %d attempts", w.port, w.portOpenRetries)
 }
 
 // ── Init sequence (§4.1.2) ────────────────────────────────────────────────

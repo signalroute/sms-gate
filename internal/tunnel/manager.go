@@ -324,6 +324,14 @@ func (m *Manager) runSession(ctx context.Context, conn *websocket.Conn) {
 	})
 
 	wg.Wait()
+
+	// Drain stale pending ACK entries left from the closed session (#67).
+	m.ackMu.Lock()
+	for id, ch := range m.pending {
+		close(ch)
+		delete(m.pending, id)
+	}
+	m.ackMu.Unlock()
 }
 
 // ── Writer goroutine ──────────────────────────────────────────────────────

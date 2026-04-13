@@ -4,6 +4,7 @@
 package at
 
 import (
+	"errors"
 	"testing"
 	"time"
 )
@@ -23,7 +24,7 @@ func TestExecute_Timeout_ClosesSerializerAndUnblocksReader(t *testing.T) {
 	s, _ := newTestSerializer(t)
 
 	_, err := s.Execute("AT", 50*time.Millisecond)
-	if err != ErrTimeout {
+	if !errors.Is(err, ErrTimeout) {
 		t.Fatalf("expected ErrTimeout, got %v", err)
 	}
 
@@ -47,7 +48,7 @@ func TestExecute_Timeout_SubsequentCallReturnsErrClosed(t *testing.T) {
 	s := NewSerializer(port, nil)
 
 	_, err := s.Execute("AT", 50*time.Millisecond)
-	if err != ErrTimeout {
+	if !errors.Is(err, ErrTimeout) {
 		t.Fatalf("first Execute: expected ErrTimeout, got %v", err)
 	}
 

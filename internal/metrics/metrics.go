@@ -83,6 +83,9 @@ type Gateway struct {
 	WorkerPoolTotal  prometheus.Gauge
 	WorkerPoolActive prometheus.Gauge
 	WorkerPoolBanned prometheus.Gauge
+
+	// ATRetryTotal counts AT command retries for modem reliability tracking (#53).
+	ATRetryTotal *prometheus.CounterVec // labels: iccid, command
 }
 
 // New creates and registers all metrics with the given registry.
@@ -231,6 +234,11 @@ func New(reg prometheus.Registerer) *Gateway {
 			Name: "smsgate_worker_pool_banned",
 			Help: "Modem workers currently in BANNED state.",
 		}),
+
+		ATRetryTotal: prometheus.NewCounterVec(prometheus.CounterOpts{
+			Name: "smsgate_at_retry_total",
+			Help: "AT command retry attempts, by iccid and command.",
+		}, []string{"iccid", "command"}),
 	}
 
 	reg.MustRegister(
@@ -262,6 +270,7 @@ func New(reg prometheus.Registerer) *Gateway {
 		g.WorkerPoolTotal,
 		g.WorkerPoolActive,
 		g.WorkerPoolBanned,
+		g.ATRetryTotal,
 	)
 	return g
 }

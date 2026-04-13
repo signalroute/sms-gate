@@ -24,6 +24,23 @@ var (
 	ErrMalformedResponse = errors.New("AT malformed response")
 )
 
+// ATError is a structured error carrying the AT command that failed and the
+// underlying cause. Use errors.As to extract it for programmatic handling (#15).
+type ATError struct {
+	Cmd   string // e.g. "AT+CMGS"
+	Cause error  // sentinel like ErrTimeout, ErrATError, or CMS/CME error
+	Raw   string // raw error line from modem, if any
+}
+
+func (e *ATError) Error() string {
+	if e.Raw != "" {
+		return fmt.Sprintf("%s: %v (%s)", e.Cmd, e.Cause, e.Raw)
+	}
+	return fmt.Sprintf("%s: %v", e.Cmd, e.Cause)
+}
+
+func (e *ATError) Unwrap() error { return e.Cause }
+
 // ── URC classification ─────────────────────────────────────────────────────
 
 // urcPrefixes lists line prefixes that are ALWAYS unsolicited.
@@ -198,19 +215,17 @@ func (s *Serializer) Execute(cmd string, timeout time.Duration) ([]string, error
 				if fn := s.ObserveLatency; fn != nil {
 					fn(cmd, time.Since(start))
 				}
-				return lines, ErrATError
+				return lines, &ATError{Cmd: cmd, Cause: ErrATError, Raw: line}
 			case strings.HasPrefix(line, "+CME ERROR:"):
 				if fn := s.ObserveLatency; fn != nil {
 					fn(cmd, time.Since(start))
 				}
-				code := strings.TrimSpace(strings.TrimPrefix(line, "+CME ERROR:"))
-				return lines, fmt.Errorf("CME ERROR %s", code)
+				return lines, &ATError{Cmd: cmd, Cause: ErrATError, Raw: line}
 			case strings.HasPrefix(line, "+CMS ERROR:"):
 				if fn := s.ObserveLatency; fn != nil {
 					fn(cmd, time.Since(start))
 				}
-				code := strings.TrimSpace(strings.TrimPrefix(line, "+CMS ERROR:"))
-				return lines, fmt.Errorf("CMS ERROR %s", code)
+				return lines, &ATError{Cmd: cmd, Cause: ErrATError, Raw: line}
 			default:
 				lines = append(lines, line)
 			}
@@ -221,7 +236,7 @@ func (s *Serializer) Execute(cmd string, timeout time.Duration) ([]string, error
 			// reader leaks permanently on every modem that stops responding
 			// (#165).  After Close() any future Execute call returns ErrClosed.
 			s.Close()
-			return nil, ErrTimeout
+			return nil, &ATError{Cmd: cmd, Cause: ErrTimeout}
 		case <-s.closed:
 			return nil, ErrClosed
 		}
@@ -306,17 +321,15 @@ func (s *Serializer) ExecuteSend(pduHex string, pduLen int, timeout time.Duratio
 			case line == "OK":
 				return mr, nil
 			case line == "ERROR":
-				return 0, ErrATError
+				return 0, &ATError{Cmd: "AT+CMGS", Cause: ErrATError, Raw: line}
 			case strings.HasPrefix(line, "+CME ERROR:"):
-				code := strings.TrimSpace(strings.TrimPrefix(line, "+CME ERROR:"))
-				return 0, fmt.Errorf("CME ERROR %s", code)
+				return 0, &ATError{Cmd: "AT+CMGS", Cause: ErrATError, Raw: line}
 			case strings.HasPrefix(line, "+CMS ERROR:"):
-				code := strings.TrimSpace(strings.TrimPrefix(line, "+CMS ERROR:"))
-				return 0, fmt.Errorf("CMS ERROR %s", code)
+				return 0, &ATError{Cmd: "AT+CMGS", Cause: ErrATError, Raw: line}
 			}
 		case <-timer.C:
 			s.Close()
-			return 0, ErrTimeout
+			return 0, &ATError{Cmd: "AT+CMGS", Cause: ErrTimeout}
 		case <-s.closed:
 			return 0, ErrClosed
 		}
