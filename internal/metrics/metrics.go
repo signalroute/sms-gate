@@ -49,6 +49,9 @@ type Gateway struct {
 	// WorkerStalls counts times a worker exceeded the stall duration without
 	// completing a main-loop iteration (labels: iccid).
 	WorkerStalls *prometheus.CounterVec
+
+	// ModemReconnectTotal counts modem reconnection attempts (labels: port).
+	ModemReconnectTotal *prometheus.CounterVec
 }
 
 // New creates and registers all metrics with the given registry.
@@ -134,6 +137,11 @@ func New(reg prometheus.Registerer) *Gateway {
 			Name: "smsgate_worker_stalls_total",
 			Help: "Times a worker exceeded the stall threshold without progress, by iccid.",
 		}, []string{"iccid"}),
+
+		ModemReconnectTotal: prometheus.NewCounterVec(prometheus.CounterOpts{
+			Name: "smsgate_modem_reconnect_total",
+			Help: "Total modem reconnection attempts, by port.",
+		}, []string{"port"}),
 	}
 
 	reg.MustRegister(
@@ -153,6 +161,7 @@ func New(reg prometheus.Registerer) *Gateway {
 		g.ATCmdDurationMs,
 		g.TasksDropped,
 		g.WorkerStalls,
+		g.ModemReconnectTotal,
 	)
 	return g
 }
