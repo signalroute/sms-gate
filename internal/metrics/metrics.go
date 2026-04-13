@@ -65,6 +65,12 @@ type Gateway struct {
 
 	// ModemSignalStrength is the current AT+CSQ signal quality in dBm per iccid.
 	ModemSignalStrength *prometheus.GaugeVec
+
+	// ActiveSerialPorts tracks the number of opened serial port connections.
+	ActiveSerialPorts prometheus.Gauge
+
+	// BufferPendingCount tracks the number of pending rows in the SQLite buffer.
+	BufferPendingCount prometheus.Gauge
 }
 
 // New creates and registers all metrics with the given registry.
@@ -166,6 +172,16 @@ func New(reg prometheus.Registerer) *Gateway {
 			Help: "Current AT+CSQ signal strength in dBm, by iccid.",
 		}, []string{"iccid"}),
 
+		ActiveSerialPorts: prometheus.NewGauge(prometheus.GaugeOpts{
+			Name: "smsgate_active_serial_ports",
+			Help: "Number of currently open modem serial port connections.",
+		}),
+
+		BufferPendingCount: prometheus.NewGauge(prometheus.GaugeOpts{
+			Name: "smsgate_buffer_pending_count",
+			Help: "Number of pending rows in the SQLite buffer awaiting flush.",
+		}),
+
 		ATCommandDuration: prometheus.NewHistogramVec(prometheus.HistogramOpts{
 			Name:    "smsgate_at_command_duration_seconds",
 			Help:    "AT command round-trip latency in seconds, by command.",
@@ -199,6 +215,8 @@ func New(reg prometheus.Registerer) *Gateway {
 		g.WorkerStalls,
 		g.ModemReconnectTotal,
 		g.ModemSignalStrength,
+		g.ActiveSerialPorts,
+		g.BufferPendingCount,
 		g.ATCommandDuration,
 		g.ModemInitDuration,
 	)

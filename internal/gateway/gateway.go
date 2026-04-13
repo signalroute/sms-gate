@@ -106,6 +106,7 @@ func (g *Gateway) Run(ctx context.Context) error {
 	mux := http.NewServeMux()
 	mux.Handle("/metrics", metrics.HandlerFor(g.promReg))
 	mux.HandleFunc("/health", g.healthHandler)
+	mux.HandleFunc("/modems", g.modemsHandler)
 	metricsSrv := &http.Server{
 		Addr:    g.conf.Metrics.Addr,
 		Handler: mux,
@@ -124,7 +125,7 @@ func (g *Gateway) Run(ctx context.Context) error {
 		_ = metricsSrv.Shutdown(shutCtx)
 	})
 
-	// Scrape queue depth every 15s and publish to Prometheus.
+	// Scrape queue depth and buffer stats every 15s and publish to Prometheus.
 	safe.Go(log, "queue-depth-scraper", func() {
 		t := time.NewTicker(15 * time.Second)
 		defer t.Stop()
@@ -134,6 +135,9 @@ func (g *Gateway) Run(ctx context.Context) error {
 				return
 			case <-t.C:
 				g.metrics.QueueDepth.Set(float64(g.reg.TotalQueueDepth()))
+				if pc, err := g.buf.PendingCount(); err == nil {
+					g.metrics.BufferPendingCount.Set(float64(pc))
+				}
 			}
 		}
 	})
@@ -160,10 +164,11 @@ func (g *Gateway) Run(ctx context.Context) error {
 		safe.GoWithWaitGroup(log, "modem-worker-"+mc.Port, &wg, func() {
 			modem.RunSupervised(ctx, func() *modem.Worker {
 				return modem.NewWorker(modem.WorkerConfig{
-					Port:      mc.Port,
-					Baud:      mc.Baud,
-					GatewayID: g.conf.Gateway.ID,
-					Buf:       g.buf,
+					Port:          mc.Port,
+					Baud:          mc.Baud,
+					GatewayID:     g.conf.Gateway.ID,
+					ExpectedICCID: mc.ExpectedICCID,
+					Buf:           g.buf,
 					Limiter:   g.limiter,
 					RateConfig: modem.RateLimitConfig{
 						PerMin:  mc.RateLimit.PerMin,
@@ -262,4 +267,19 @@ func (g *Gateway) healthHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(statusCode)
 	_ = json.NewEncoder(w).Encode(resp)
+}
+
+// modemsHandler serves GET /modems — returns current modem statuses (#162).
+func (g *Gateway) modemsHandler(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	snap := g.reg.Snapshot()
+	statuses := make([]modem.WorkerStatus, 0, len(snap))
+	for _, s := range snap {
+		statuses = append(statuses, s)
+	}
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(statuses)
 }

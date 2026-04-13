@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: MIT
 // Copyright (C) 2026 Signalroute
 
-// Command gateway is the Go-SMS-Gate headless modem daemon.
+// Command gateway is the sms-gate headless modem daemon.
 //
 // Usage:
 //
-//	go-sms-gate --config /etc/go-sms-gate/config.yaml
+//	sms-gate --config /etc/sms-gate/config.yaml
 package main
 
 import (
@@ -20,6 +20,14 @@ import (
 	"github.com/signalroute/sms-gate/internal/config"
 	"github.com/signalroute/sms-gate/internal/gateway"
 )
+
+func init() {
+	// Force the pure-Go DNS resolver to avoid cgo dependency on musl/glibc
+	// and ensure consistent behavior across cross-compiled targets (#128).
+	if os.Getenv("GODEBUG") == "" {
+		os.Setenv("GODEBUG", "netdns=go")
+	}
+}
 
 // version is injected at build time via -ldflags "-X main.version=<tag>".
 var version = "dev"
@@ -38,7 +46,7 @@ func run() error {
 	flag.Parse()
 
 	if *showVersion {
-		fmt.Printf("go-sms-gate %s\n", version)
+		fmt.Printf("sms-gate %s\n", version)
 		return nil
 	}
 
@@ -51,7 +59,7 @@ func run() error {
 	// ── Structured logger ──────────────────────────────────────────────────
 	// conf already reflects env var overrides applied by config.Load.
 	log := buildLogger(conf.Gateway.LogLevel, conf.Gateway.LogFormat)
-	log.Info("go-sms-gate starting",
+	log.Info("sms-gate starting",
 		"version", version,
 		"gateway_id", conf.Gateway.ID,
 		"modems", len(conf.Modems),
