@@ -104,7 +104,15 @@ type ManagerConfig struct {
 	// HandshakeTimeout controls the WebSocket handshake deadline (#125).
 	// Defaults to 15 seconds when zero.
 	HandshakeTimeout time.Duration
+	// WriteDeadline is the per-message WebSocket write deadline (#154).
+	// Defaults to 30 seconds when zero.
+	WriteDeadline time.Duration
 }
+
+// MaxPendingACKs is the upper bound on the pending ACK map size.
+// When this limit is reached, new entries are skipped to prevent unbounded
+// memory growth from stale ACK entries (#130).
+const MaxPendingACKs = 1000
 
 // Manager manages the WebSocket tunnel lifecycle.
 type Manager struct {
@@ -122,18 +130,29 @@ type Manager struct {
 	ackMu   sync.Mutex
 	pending map[int64]chan struct{}
 
+	// flushMu prevents concurrent flushBuffer invocations (#190).
+	flushMu sync.Mutex
+
+	// writeDeadline is the per-message WebSocket write deadline.
+	writeDeadline time.Duration
+
 	// Inject event for routing (Task Router sets this).
 	InboundTaskFn func(task Task) error
 }
 
 // NewManager creates a Tunnel Manager.
 func NewManager(cfg ManagerConfig) *Manager {
+	wd := cfg.WriteDeadline
+	if wd <= 0 {
+		wd = 30 * time.Second
+	}
 	return &Manager{
-		cfg:       cfg,
-		log:       cfg.Logger.With("component", "tunnel"),
-		outbox:    make(chan any, 256),
-		pending:   make(map[int64]chan struct{}),
-		startTime: time.Now(),
+		cfg:           cfg,
+		log:           cfg.Logger.With("component", "tunnel"),
+		outbox:        make(chan any, 256),
+		pending:       make(map[int64]chan struct{}),
+		startTime:     time.Now(),
+		writeDeadline: wd,
 	}
 }
 
@@ -239,6 +258,13 @@ func (m *Manager) dial(ctx context.Context) (*websocket.Conn, error) {
 
 func (m *Manager) runSession(ctx context.Context, conn *websocket.Conn) {
 	defer conn.Close()
+
+	// Purge stale delivered rows on session start (#146).
+	if n, err := m.cfg.Buf.Purge(m.cfg.RetentionDays); err != nil {
+		m.log.Warn("purge on connect failed", "err", err)
+	} else if n > 0 {
+		m.log.Info("purged stale buffer rows on connect", "count", n)
+	}
 
 	// Send HELLO.
 	if err := m.sendHello(conn); err != nil {
@@ -431,6 +457,12 @@ func (m *Manager) sendHeartbeat(conn *websocket.Conn) error {
 // ── Offline buffer flush ──────────────────────────────────────────────────
 
 func (m *Manager) flushBuffer(ctx context.Context, conn *websocket.Conn) {
+	// Prevent concurrent flush invocations (#190).
+	if !m.flushMu.TryLock() {
+		return
+	}
+	defer m.flushMu.Unlock()
+
 	rows, err := m.cfg.Buf.PendingRows()
 	if err != nil {
 		m.log.Error("flush: query pending rows", "err", err)
@@ -465,9 +497,14 @@ func (m *Manager) flushBuffer(ctx context.Context, conn *websocket.Conn) {
 			return
 		}
 
-		// Track pending ACK.
-		ackCh := make(chan struct{}, 1)
+		// Guard pending ACK map size (#130).
 		m.ackMu.Lock()
+		if len(m.pending) >= MaxPendingACKs {
+			m.ackMu.Unlock()
+			m.log.Warn("flush: pending ACK map full, skipping", "buffer_id", row.ID, "max", MaxPendingACKs)
+			continue
+		}
+		ackCh := make(chan struct{}, 1)
 		m.pending[row.ID] = ackCh
 		m.ackMu.Unlock()
 
@@ -512,6 +549,9 @@ func (m *Manager) writeJSON(conn *websocket.Conn, v any) error {
 	b, err := json.Marshal(v)
 	if err != nil {
 		return fmt.Errorf("marshal: %w", err)
+	}
+	if err := conn.SetWriteDeadline(time.Now().Add(m.writeDeadline)); err != nil {
+		return fmt.Errorf("set write deadline: %w", err)
 	}
 	return conn.WriteMessage(websocket.TextMessage, b)
 }

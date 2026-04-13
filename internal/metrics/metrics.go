@@ -31,6 +31,10 @@ type Gateway struct {
 	// Active modem connections (workers in ACTIVE or EXECUTING state).
 	ActiveConnections prometheus.Gauge
 
+	// RegistrationFailures counts network registration failures (stat==3 or
+	// recovery triggered from keepalive timeout), by iccid.
+	RegistrationFailures *prometheus.CounterVec
+
 	// Tunnel
 	TunnelState           prometheus.Gauge
 	TunnelReconnectsTotal prometheus.Counter
@@ -111,6 +115,11 @@ func New(reg prometheus.Registerer) *Gateway {
 			Help: "Number of modem workers currently in ACTIVE or EXECUTING state.",
 		}),
 
+		RegistrationFailures: prometheus.NewCounterVec(prometheus.CounterOpts{
+			Name: "smsgate_registration_failures_total",
+			Help: "Network registration failures (denied or recovery triggered), by iccid.",
+		}, []string{"iccid"}),
+
 		TunnelState: prometheus.NewGauge(prometheus.GaugeOpts{
 			Name: "smsgate_tunnel_state",
 			Help: "1 = CONNECTED, 0 = disconnected.",
@@ -180,6 +189,7 @@ func New(reg prometheus.Registerer) *Gateway {
 		g.ModemState,
 		g.ModemSignalRSSI,
 		g.ActiveConnections,
+		g.RegistrationFailures,
 		g.TunnelState,
 		g.TunnelReconnectsTotal,
 		g.ReconnectsTotal,

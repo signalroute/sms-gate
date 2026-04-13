@@ -17,10 +17,11 @@ import (
 // ── Sentinel errors ────────────────────────────────────────────────────────
 
 var (
-	ErrTimeout     = errors.New("AT command timed out")
-	ErrATError     = errors.New("AT ERROR")
-	ErrClosed      = errors.New("serializer closed")
-	ErrSendPrompt  = errors.New("did not receive send prompt '>'")
+	ErrTimeout           = errors.New("AT command timed out")
+	ErrATError           = errors.New("AT ERROR")
+	ErrClosed            = errors.New("serializer closed")
+	ErrSendPrompt        = errors.New("did not receive send prompt '>'")
+	ErrMalformedResponse = errors.New("AT malformed response")
 )
 
 // ── URC classification ─────────────────────────────────────────────────────
@@ -381,7 +382,7 @@ func (s *Serializer) ReadICCID() (string, error) {
 			}
 		}
 	}
-	return "", fmt.Errorf("could not read ICCID")
+	return "", fmt.Errorf("could not read ICCID: %w", ErrMalformedResponse)
 }
 
 // ReadIMSI reads the IMSI via AT+CIMI.
@@ -396,7 +397,7 @@ func (s *Serializer) ReadIMSI() (string, error) {
 			return l, nil
 		}
 	}
-	return "", fmt.Errorf("could not read IMSI")
+	return "", fmt.Errorf("could not read IMSI: %w", ErrMalformedResponse)
 }
 
 // ReadOperator reads the current operator string via AT+COPS?.
@@ -433,7 +434,7 @@ func (s *Serializer) SignalQuality() (int, error) {
 			return -113 + csq*2, nil
 		}
 	}
-	return 0, fmt.Errorf("no +CSQ in response")
+	return 0, fmt.Errorf("no +CSQ in response: %w", ErrMalformedResponse)
 }
 
 // RegistrationStatus queries AT+CREG? and returns the stat value:
@@ -462,7 +463,7 @@ func (s *Serializer) RegistrationStatus() (int, error) {
 			return stat, nil
 		}
 	}
-	return 0, fmt.Errorf("no +CREG in response")
+	return 0, fmt.Errorf("no +CREG in response: %w", ErrMalformedResponse)
 }
 
 // StorageStatus reads SIM storage used/total via AT+CPMS?.
@@ -486,7 +487,7 @@ func (s *Serializer) StorageStatus() (int, int, error) {
 			}
 		}
 	}
-	return 0, 0, fmt.Errorf("could not parse +CPMS response")
+	return 0, 0, fmt.Errorf("could not parse +CPMS response: %w", ErrMalformedResponse)
 }
 
 // ReadSMS reads a single SMS at the given index. Returns raw PDU hex string.
@@ -501,7 +502,7 @@ func (s *Serializer) ReadSMS(index int) (string, error) {
 			return strings.TrimSpace(lines[i+1]), nil
 		}
 	}
-	return "", fmt.Errorf("no PDU in CMGR response")
+	return "", fmt.Errorf("no PDU in CMGR response: %w", ErrMalformedResponse)
 }
 
 // DeleteSMS deletes the SMS at the given index.
@@ -540,7 +541,7 @@ func ParseCMTI(urc string) (int, error) {
 	// +CMTI: "SM",5  or  +CMTI: "ME",5
 	parts := strings.Split(urc, ",")
 	if len(parts) < 2 {
-		return 0, fmt.Errorf("malformed CMTI: %q", urc)
+		return 0, fmt.Errorf("malformed CMTI: %q: %w", urc, ErrMalformedResponse)
 	}
 	var idx int
 	_, err := fmt.Sscanf(strings.TrimSpace(parts[1]), "%d", &idx)

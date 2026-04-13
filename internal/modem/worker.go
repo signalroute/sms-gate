@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"log/slog"
 	"net"
+	"regexp"
 	"strings"
 	"sync/atomic"
 	"time"
@@ -20,6 +21,9 @@ import (
 
 	"go.bug.st/serial"
 )
+
+// validE164 matches E.164 phone numbers: +<cc><subscriber> (7-15 digits).
+var validE164 = regexp.MustCompile(`^\+[1-9]\d{6,14}$`)
 
 // ── Worker state ──────────────────────────────────────────────────────────
 
@@ -482,6 +486,7 @@ func (w *Worker) handleURC(ctx context.Context, s *at.Serializer, urc string, lo
 		stat := at.ParseCREG(urc)
 		w.regStat.Store(int32(stat))
 		if stat == 3 {
+			w.metrics.RegistrationFailures.WithLabelValues(w.iccid).Inc()
 			w.enterBanned(s, urc, log)
 		}
 	}
@@ -612,6 +617,9 @@ func (w *Worker) doSendSMS(s *at.Serializer, task tunnel.Task, log *slog.Logger)
 	if p.ICCID == "" || p.To == "" || p.Body == "" {
 		return nil, &tunnel.TaskError{Code: tunnel.ErrCodeInvalidPayload, Message: "iccid, to, and body are required"}
 	}
+	if !validE164.MatchString(p.To) {
+		return nil, &tunnel.TaskError{Code: tunnel.ErrCodeInvalidPayload, Message: fmt.Sprintf("invalid E.164 phone number: %q", p.To)}
+	}
 
 	if !w.limiter.Allow(w.iccid) {
 		return nil, &tunnel.TaskError{Code: tunnel.ErrCodeRateLimited, Message: "per-SIM rate limit exceeded"}
@@ -693,6 +701,7 @@ func (w *Worker) runKeepalive(s *at.Serializer, reg *Registry, log *slog.Logger)
 	stat, err := s.RegistrationStatus()
 	if err != nil {
 		log.Warn("keepalive: registration query failed, entering recovery", "err", err)
+		w.metrics.RegistrationFailures.WithLabelValues(w.iccid).Inc()
 		w.enterRecovery(s, reg, log)
 		return
 	}
@@ -706,6 +715,7 @@ func (w *Worker) runKeepalive(s *at.Serializer, reg *Registry, log *slog.Logger)
 	}
 
 	if stat == 3 { // registration denied
+		w.metrics.RegistrationFailures.WithLabelValues(w.iccid).Inc()
 		w.enterBanned(s, fmt.Sprintf("+CREG: %d (Registration denied)", stat), log)
 	}
 }
@@ -785,6 +795,10 @@ func (w *Worker) enterRecovery(s *at.Serializer, reg *Registry, log *slog.Logger
 		log.Error("ping after radio cycle failed, escalating to reset", "err", err)
 		w.enterReset(s, log)
 		return
+	}
+	// Re-verify PDU mode after recovery — modem may have reset to text mode (#142).
+	if err := s.SetPDUMode(); err != nil {
+		log.Error("PDU mode re-set after recovery failed", "err", err)
 	}
 	log.Info("radio cycle succeeded, back to ACTIVE")
 	w.state.Store(int32(StateActive))
