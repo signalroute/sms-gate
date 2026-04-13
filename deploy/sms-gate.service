@@ -1,0 +1,24 @@
+[Unit]
+Description=Signalroute SMS Gateway
+Documentation=https://github.com/signalroute/sms-gate
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=smsgate
+Group=smsgate
+ExecStart=/usr/local/bin/sms-gate --config /etc/sms-gate/config.yaml
+Restart=on-failure
+RestartSec=5s
+TimeoutStopSec=30s
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=sms-gate
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/lib/sms-gate
+
+[Install]
+WantedBy=multi-user.target
