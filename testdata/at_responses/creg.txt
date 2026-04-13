@@ -1,0 +1,34 @@
+# AT+CREG responses — network registration status
+# Format: +CREG: <n>,<stat>[,<lac>,<ci>[,<AcT>]]
+# stat: 0=not registered, 1=home, 2=searching, 3=denied, 4=unknown, 5=roaming
+
+# Registered on home network (stat=1)
++CREG: 0,1
+OK
+
+# Registered, roaming (stat=5)
++CREG: 0,5
+OK
+
+# Not registered, searching (stat=2)
++CREG: 0,2
+OK
+
+# Registration denied (stat=3)
++CREG: 0,3
+OK
+
+# Not registered, not searching (stat=0)
++CREG: 0,0
+OK
+
+# Registered home network with LAC and CellID (n=2 verbose mode)
++CREG: 2,1,"1A2B","3C4D",7
+OK
+
+# Roaming with location info
++CREG: 2,5,"FF01","A001",6
+OK
+
+# Error (SIM not inserted)
++CME ERROR: 10

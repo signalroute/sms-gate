@@ -1,0 +1,31 @@
+# AT+CSQ response fixtures — signal quality
+# Format: +CSQ: <rssi>,<ber>
+# rssi: 0–31 (dBm = rssi*2 - 113), 99 = unknown/not detectable
+# ber: 0–7 (bit error rate), 99 = unknown
+
+# Good signal (rssi=20 → -73 dBm)
++CSQ: 20,0
+OK
+
+# Marginal signal (rssi=10 → -93 dBm)
++CSQ: 10,99
+OK
+
+# Very weak signal (rssi=5 → -103 dBm)
++CSQ: 5,99
+OK
+
+# No signal / no SIM
++CSQ: 99,99
+OK
+
+# Maximum signal (rssi=31 → -51 dBm)
++CSQ: 31,0
+OK
+
+# Minimum detectable (rssi=2 → -109 dBm)
++CSQ: 2,99
+OK
+
+# Error response (modem not initialised)
++CME ERROR: 10

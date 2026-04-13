@@ -1,0 +1,32 @@
+# AT+COPS responses — operator selection / query
+# Format: +COPS: <mode>,<format>,<oper>[,<AcT>]
+# mode: 0=automatic, 1=manual, 2=deregistered, 3=set format only, 4=manual/auto
+# format: 0=long alphanumeric, 1=short alphanumeric, 2=numeric MCC/MNC
+# AcT: 0=GSM, 2=UTRAN, 7=LTE, 13=NR (5G)
+
+# Registered on Telekom (long alphanumeric), LTE
++COPS: 0,0,"Telekom.de",7
+OK
+
+# Registered on Vodafone (numeric MCC/MNC 26202), LTE
++COPS: 0,2,"26202",7
+OK
+
+# Registered on O2 Germany (short alphanumeric), UMTS
++COPS: 0,1,"o2-de",2
+OK
+
+# Roaming on foreign operator, LTE
++COPS: 0,0,"AT&T",7
+OK
+
+# Not registered / searching
++COPS: 0
+OK
+
+# List available operators (AT+COPS=?)
++COPS: (1,"Telekom.de","TDG","26201",7),(1,"Vodafone.de","VF D","26202",7),(2,"o2-de","o2-de","26203",7)
+OK
+
+# Error (modem not initialised)
++CME ERROR: 3

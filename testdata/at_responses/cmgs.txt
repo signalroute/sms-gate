@@ -1,0 +1,34 @@
+# AT+CMGS responses — SMS send result
+# The send sequence is: AT+CMGS=<length>\r  →  > (prompt)  →  <pdu>\x1A  →  +CMGS: <mr>\r\nOK
+# or  +CMS ERROR: <err>
+
+# Successful send, message reference 1
++CMGS: 1
+OK
+
+# Successful send, message reference 42
++CMGS: 42
+OK
+
+# Send failure — network out of service
++CMS ERROR: 38
+
+# Send failure — memory capacity exceeded on network
++CMS ERROR: 322
+
+# Send failure — SIM not inserted
++CMS ERROR: 10
+
+# Send failure — FDN (Fixed Dialling Number) restriction
++CMS ERROR: 312
+
+# Timeout / no response from modem (hardware stall scenario)
+# (no response — serializer returns ErrTimeout)
+
+# Multi-part send, first segment
++CMGS: 10
+OK
+
+# Multi-part send, second segment
++CMGS: 11
+OK
