@@ -72,15 +72,16 @@ type InboundTask struct {
 // ── WorkerStatus is a snapshot for heartbeats ─────────────────────────────
 
 type WorkerStatus struct {
-	ICCID      string
-	Port       string
-	State      string
-	IMSI       string
-	Operator   string
-	SignalRSSI int
-	RegStatus  string
-	Sent1H     int64
-	Recv1H     int64
+	ICCID        string `json:"iccid"`
+	Port         string `json:"port"`
+	State        string `json:"state"`
+	IMSI         string `json:"imsi"`
+	Operator     string `json:"operator"`
+	SignalRSSI   int    `json:"signal_rssi"`
+	RegStatus    string `json:"reg_status"`
+	Sent1H       int64  `json:"sent_1h"`
+	Recv1H       int64  `json:"recv_1h"`
+	LastActivity int64  `json:"last_activity_ms,omitempty"` // unix millis (#111)
 }
 
 // ── Worker ────────────────────────────────────────────────────────────────
@@ -89,9 +90,10 @@ type WorkerStatus struct {
 // and implements the Modem State Machine from §5.1 of the spec.
 type Worker struct {
 	// Immutable after construction.
-	port       string
-	baud       int
-	gatewayID  string
+	port          string
+	baud          int
+	gatewayID     string
+	expectedICCID string // optional ICCID guard (#135)
 	// iccid, imsi, operator are set once in runInitSequence, before the worker
 	// is registered in the Registry.  Registry.Register/Lookup use a mutex that
 	// establishes the happens-before relationship between the write (init
@@ -110,6 +112,10 @@ type Worker struct {
 	// lastLoopNs is updated at the end of every main-loop iteration.
 	// The watchdog goroutine uses this to detect a stuck worker (#112).
 	lastLoopNs atomic.Int64
+
+	// lastActivityNs records the last time the worker performed a meaningful
+	// action (sent/received SMS, executed a task, etc.) for status reporting (#111).
+	lastActivityNs atomic.Int64
 
 	// Channels
 	inboundCh chan InboundTask
@@ -136,6 +142,7 @@ type WorkerConfig struct {
 	Port                string
 	Baud                int
 	GatewayID           string
+	ExpectedICCID       string // optional: fail init if SIM ICCID doesn't match (#135)
 	Buf                 *buffer.Buffer
 	Limiter             *RateLimiterRegistry
 	RateConfig          RateLimitConfig
@@ -176,6 +183,7 @@ func NewWorker(cfg WorkerConfig) *Worker {
 		port:                cfg.Port,
 		baud:                cfg.Baud,
 		gatewayID:           cfg.GatewayID,
+		expectedICCID:       cfg.ExpectedICCID,
 		buf:                 cfg.Buf,
 		limiter:             cfg.Limiter,
 		rateCfg:             cfg.RateConfig,
@@ -202,15 +210,16 @@ func (w *Worker) QueueLen() int { return len(w.inboundCh) }
 // Status returns a snapshot of the worker's current status.
 func (w *Worker) Status() WorkerStatus {
 	return WorkerStatus{
-		ICCID:      w.iccid,
-		Port:       w.port,
-		State:      State(w.state.Load()).String(),
-		IMSI:       w.imsi,
-		Operator:   w.operator,
-		SignalRSSI: int(w.signalRSSI.Load()),
-		RegStatus:  tunnel.RegStatusString(int(w.regStat.Load())),
-		Sent1H:     w.sent1H.Load(),
-		Recv1H:     w.recv1H.Load(),
+		ICCID:        w.iccid,
+		Port:         w.port,
+		State:        State(w.state.Load()).String(),
+		IMSI:         w.imsi,
+		Operator:     w.operator,
+		SignalRSSI:   int(w.signalRSSI.Load()),
+		RegStatus:    tunnel.RegStatusString(int(w.regStat.Load())),
+		Sent1H:       w.sent1H.Load(),
+		Recv1H:       w.recv1H.Load(),
+		LastActivity: w.lastActivityNs.Load() / int64(time.Millisecond),
 	}
 }
 
@@ -218,6 +227,7 @@ func (w *Worker) Status() WorkerStatus {
 // error occurs. Returns the final state.
 func (w *Worker) Run(ctx context.Context, registry *Registry) State {
 	log := w.logger.With("port", w.port, "component", "worker")
+	log.Info("worker starting", "port", w.port, "baud", w.baud)
 
 	// Open and configure serial port.
 	ser, err := w.openPort()
@@ -227,6 +237,8 @@ func (w *Worker) Run(ctx context.Context, registry *Registry) State {
 		return StateFailed
 	}
 	defer ser.Close()
+	w.metrics.ActiveSerialPorts.Inc()
+	defer w.metrics.ActiveSerialPorts.Dec()
 
 	atSer := at.NewSerializer(ser, log)
 	defer atSer.Close()
@@ -436,6 +448,9 @@ func (w *Worker) runInitSequence(s *at.Serializer, log *slog.Logger) error {
 			if err != nil {
 				return err
 			}
+			if w.expectedICCID != "" && iccid != w.expectedICCID {
+				return fmt.Errorf("ICCID mismatch: expected %s, got %s", w.expectedICCID, iccid)
+			}
 			w.iccid = iccid
 			return nil
 		}},
@@ -537,9 +552,11 @@ func (w *Worker) receiveSMS(ctx context.Context, s *at.Serializer, index int, lo
 
 	w.recv1H.Add(1)
 	w.metrics.SMSReceived.WithLabelValues(w.iccid).Inc()
+	w.lastActivityNs.Store(time.Now().UnixNano())
 
-	log.Info("SMS received",
+	log.Info("SMS received and decoded",
 		"sender", decoded.Sender,
+		"body_len", len(decoded.Body),
 		"buffer_id", id,
 		"pdu_hash", decoded.PDUHash,
 	)
@@ -564,6 +581,7 @@ func (w *Worker) executeTask(ctx context.Context, s *at.Serializer, it InboundTa
 	task := it.Task
 	log = log.With("task_id", task.MessageID, "action", task.Action)
 	log.Info("executing task")
+	w.lastActivityNs.Store(time.Now().UnixNano())
 
 	prev := State(w.state.Load())
 	w.state.Store(int32(StateExecuting))

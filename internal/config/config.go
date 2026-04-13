@@ -52,9 +52,10 @@ type BufferSection struct {
 }
 
 type ModemConfig struct {
-	Port      string          `yaml:"port"`
-	Baud      int             `yaml:"baud"`
-	RateLimit RateLimitConfig `yaml:"rate_limit"`
+	Port           string          `yaml:"port"`
+	Baud           int             `yaml:"baud"`
+	RateLimit      RateLimitConfig `yaml:"rate_limit"`
+	ExpectedICCID  string          `yaml:"expected_iccid,omitempty"` // optional SIM ICCID guard (#135)
 }
 
 type RateLimitConfig struct {
