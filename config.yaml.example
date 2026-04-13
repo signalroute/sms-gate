@@ -1,0 +1,17 @@
+# Signalroute sms-gate example configuration
+cloud:
+  url: "http://localhost:8080"
+  token: ""              # gateway registration token
+  timeout: 30s
+  max_retries: 3
+
+modems:
+  poll_interval: 5s
+  serial_timeout: 10s
+
+metrics:
+  addr: ":9200"          # Prometheus metrics endpoint
+
+log:
+  level: "info"          # debug|info|warn|error
+  format: "json"         # json|text

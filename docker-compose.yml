@@ -1,0 +1,31 @@
+version: "3.9"
+services:
+  modem-emu:
+    image: golang:1.23-alpine
+    working_dir: /app
+    volumes:
+      - ../modem-emu:/app
+    command: go run ./cmd/modem-emu --modems 2 --port 8888
+    ports:
+      - "8888:8888"
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:8888/health"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  sms-gate:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    depends_on:
+      modem-emu:
+        condition: service_healthy
+    environment:
+      - CLOUD_URL=http://sms-cloud:8080
+      - MODEM_EMU_URL=http://modem-emu:8888
+    ports:
+      - "7000:7000"
+      - "7001:7001"
+    volumes:
+      - ./config.yaml:/app/config.yaml:ro
