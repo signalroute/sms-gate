@@ -1,0 +1,22 @@
+# Ignore everything except what the Dockerfile actually needs.
+.git
+.github
+.DS_Store
+*.md
+!README.md
+LICENSE
+Makefile
+*.test
+*.out
+testdata/
+docs/
+scripts/
+deployments/
+configs/
+e2e/
+bin/
+__pycache__/
+*.pyc
+.env*
+docker-compose*.yml
+Dockerfile.e2e

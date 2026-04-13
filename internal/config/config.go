@@ -226,6 +226,13 @@ func validate(cfg *GatewayConfig) error {
 	if cfg.Gateway.ID == "" {
 		return fmt.Errorf("gateway.id must not be empty")
 	}
+	// Validate log level (#37).
+	switch strings.ToLower(cfg.Gateway.LogLevel) {
+	case "debug", "info", "warn", "error":
+		// ok
+	default:
+		return fmt.Errorf("gateway.log_level %q is invalid; must be debug, info, warn, or error", cfg.Gateway.LogLevel)
+	}
 	if cfg.Tunnel.URL == "" {
 		return fmt.Errorf("tunnel.url must not be empty")
 	}
@@ -241,6 +248,10 @@ func validate(cfg *GatewayConfig) error {
 	for i, m := range cfg.Modems {
 		if m.Port == "" {
 			return fmt.Errorf("modems[%d].port must not be empty", i)
+		}
+		// Port names must look like device paths or PTY paths (#94).
+		if !strings.HasPrefix(m.Port, "/dev/") && !strings.HasPrefix(m.Port, "/tmp/") {
+			return fmt.Errorf("modems[%d].port %q must start with /dev/ or /tmp/", i, m.Port)
 		}
 	}
 	return nil

@@ -265,7 +265,8 @@ func (w *Worker) Run(ctx context.Context, registry *Registry) State {
 
 	initStart := time.Now()
 	if err := w.runInitSequence(atSer, log); err != nil {
-		log.Error("init sequence failed", "err", err)
+		// Include port + expected ICCID for early error context (#45).
+		log.Error("init sequence failed", "err", err, "expected_iccid", w.expectedICCID)
 		w.state.Store(int32(StateFailed))
 		return StateFailed
 	}
@@ -664,6 +665,14 @@ func (w *Worker) doSendSMS(s *at.Serializer, task tunnel.Task, log *slog.Logger)
 	}
 	if !validE164.MatchString(p.To) {
 		return nil, &tunnel.TaskError{Code: tunnel.ErrCodeInvalidPayload, Message: fmt.Sprintf("invalid E.164 phone number: %q", p.To)}
+	}
+
+	// SMS body must fit in a reasonable number of concatenated segments (#19).
+	// GSM-7 = 153 chars/segment × 255 segments max, UCS-2 = 67 chars × 255.
+	// 39015 is the GSM-7 ceiling; cap at 10000 chars as a practical limit.
+	const maxSMSBody = 10000
+	if len(p.Body) > maxSMSBody {
+		return nil, &tunnel.TaskError{Code: tunnel.ErrCodeInvalidPayload, Message: fmt.Sprintf("body too long: %d chars (max %d)", len(p.Body), maxSMSBody)}
 	}
 
 	if !w.limiter.Allow(w.iccid) {
