@@ -43,6 +43,12 @@ type Gateway struct {
 	// AT command timing
 	ATCmdDurationMs *prometheus.HistogramVec // labels: command
 
+	// ATCommandDuration is the canonical AT command latency histogram in seconds.
+	ATCommandDuration *prometheus.HistogramVec // labels: command
+
+	// ModemInitDuration tracks how long the modem initialisation sequence takes.
+	ModemInitDuration *prometheus.HistogramVec // labels: iccid
+
 	// Reliability
 	// TasksDropped counts tasks rejected because inboundCh was full (labels: iccid).
 	TasksDropped *prometheus.CounterVec
@@ -150,6 +156,18 @@ func New(reg prometheus.Registerer) *Gateway {
 			Name: "smsgate_modem_signal_strength",
 			Help: "Current AT+CSQ signal strength in dBm, by iccid.",
 		}, []string{"iccid"}),
+
+		ATCommandDuration: prometheus.NewHistogramVec(prometheus.HistogramOpts{
+			Name:    "smsgate_at_command_duration_seconds",
+			Help:    "AT command round-trip latency in seconds, by command.",
+			Buckets: []float64{0.001, 0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1.0, 2.0, 5.0},
+		}, []string{"command"}),
+
+		ModemInitDuration: prometheus.NewHistogramVec(prometheus.HistogramOpts{
+			Name:    "smsgate_modem_init_duration_seconds",
+			Help:    "Duration of the modem initialisation sequence, by iccid.",
+			Buckets: []float64{0.5, 1.0, 2.0, 5.0, 10.0, 30.0, 60.0},
+		}, []string{"iccid"}),
 	}
 
 	reg.MustRegister(
@@ -171,6 +189,8 @@ func New(reg prometheus.Registerer) *Gateway {
 		g.WorkerStalls,
 		g.ModemReconnectTotal,
 		g.ModemSignalStrength,
+		g.ATCommandDuration,
+		g.ModemInitDuration,
 	)
 	return g
 }

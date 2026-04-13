@@ -41,6 +41,8 @@ type TunnelSection struct {
 	ACKTimeoutS          int    `yaml:"ack_timeout_s"`
 	ReconnectBaseS       int    `yaml:"reconnect_base_s"`
 	ReconnectMaxS        int    `yaml:"reconnect_max_s"`
+	// HandshakeTimeoutS is the WebSocket handshake deadline in seconds (#125).
+	HandshakeTimeoutS    int    `yaml:"handshake_timeout_s"`
 }
 
 type BufferSection struct {
@@ -97,6 +99,9 @@ func defaults(cfg *GatewayConfig) {
 	}
 	if cfg.Tunnel.ReconnectMaxS == 0 {
 		cfg.Tunnel.ReconnectMaxS = 300
+	}
+	if cfg.Tunnel.HandshakeTimeoutS == 0 {
+		cfg.Tunnel.HandshakeTimeoutS = 15
 	}
 	if cfg.Buffer.DBPath == "" {
 		cfg.Buffer.DBPath = "./sms.db"

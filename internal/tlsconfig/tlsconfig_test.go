@@ -234,3 +234,50 @@ func TestFromEnv_TLSConfigIsUsable(t *testing.T) {
 	// Verify it satisfies the tls.Certificate interface expectation.
 	_ = tls.Certificate(cert)
 }
+
+// TestFromEnv_MinTLSVersion verifies that FromEnv always sets MinVersion to
+// TLS 1.2 regardless of which combination of env vars is used (#138).
+func TestFromEnv_MinTLSVersion(t *testing.T) {
+	dir := t.TempDir()
+	certPEM, keyPEM := generateSelfSigned(t)
+	certPath := writePEM(t, dir, "cert.pem", certPEM)
+	keyPath := writePEM(t, dir, "key.pem", keyPEM)
+	caPath := writePEM(t, dir, "ca.pem", certPEM)
+
+	cases := []struct {
+		name    string
+		setenvs map[string]string
+	}{
+		{
+			name:    "CA only",
+			setenvs: map[string]string{"CLOUD_TLS_CA": caPath},
+		},
+		{
+			name:    "cert+key only",
+			setenvs: map[string]string{"CLOUD_TLS_CERT": certPath, "CLOUD_TLS_KEY": keyPath},
+		},
+		{
+			name:    "cert+key+CA",
+			setenvs: map[string]string{"CLOUD_TLS_CERT": certPath, "CLOUD_TLS_KEY": keyPath, "CLOUD_TLS_CA": caPath},
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			clearEnv(t)
+			for k, v := range tc.setenvs {
+				t.Setenv(k, v)
+			}
+			cfg, err := tlsconfig.FromEnv()
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+			if cfg == nil {
+				t.Fatal("expected non-nil config")
+			}
+			if cfg.MinVersion != tls.VersionTLS12 {
+				t.Errorf("MinVersion = %d, want %d (TLS 1.2)", cfg.MinVersion, tls.VersionTLS12)
+			}
+		})
+	}
+}

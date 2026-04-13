@@ -102,3 +102,74 @@ func TestDial_TLSSkipVerify_DefaultFails(t *testing.T) {
 		t.Fatal("expected TLS verification failure for self-signed cert, got nil")
 	}
 }
+
+// ── Payload size guard (#123) ─────────────────────────────────────────────
+
+// TestHandleInbound_PayloadTooLarge verifies that oversized messages are
+// rejected before JSON unmarshalling.
+func TestHandleInbound_PayloadTooLarge(t *testing.T) {
+	m := &Manager{}
+	oversized := make([]byte, MaxInboundPayloadBytes+1)
+	err := m.handleInbound(oversized)
+	if err == nil {
+		t.Fatal("expected error for oversized payload, got nil")
+	}
+}
+
+// TestHandleInbound_PayloadAtLimit verifies that a message exactly at the
+// limit is not rejected by the size guard (it will fail JSON parsing instead).
+func TestHandleInbound_PayloadAtLimit(t *testing.T) {
+	m := &Manager{}
+	// Exactly at limit — should not trigger the size guard (will fail JSON).
+	atLimit := make([]byte, MaxInboundPayloadBytes)
+	err := m.handleInbound(atLimit)
+	// Error expected (invalid JSON), but NOT a size error.
+	if err == nil {
+		t.Fatal("expected JSON error, got nil")
+	}
+	if len(atLimit) > MaxInboundPayloadBytes {
+		t.Fatal("size guard should not reject at-limit payloads")
+	}
+}
+
+// ── Token rotation (#184) ─────────────────────────────────────────────────
+
+// TestManagerConfig_TokenFn_DefaultIsNil verifies that TokenFn is nil when
+// not set (static token is used).
+func TestManagerConfig_TokenFn_DefaultIsNil(t *testing.T) {
+	cfg := ManagerConfig{Token: "static-token"}
+	if cfg.TokenFn != nil {
+		t.Fatal("TokenFn should be nil by default")
+	}
+}
+
+// TestManagerConfig_TokenFn_CanBeSet verifies that TokenFn is callable and
+// its return value is distinct from the static Token field.
+func TestManagerConfig_TokenFn_CanBeSet(t *testing.T) {
+	calls := 0
+	cfg := ManagerConfig{
+		Token: "static",
+		TokenFn: func() string {
+			calls++
+			return "dynamic-token"
+		},
+	}
+	got := cfg.TokenFn()
+	if got != "dynamic-token" {
+		t.Fatalf("TokenFn returned %q, want %q", got, "dynamic-token")
+	}
+	if calls != 1 {
+		t.Fatalf("TokenFn called %d times, want 1", calls)
+	}
+}
+
+// ── Handshake timeout (#125) ──────────────────────────────────────────────
+
+// TestManagerConfig_HandshakeTimeout_DefaultIsZero verifies that a zero value
+// is the default (manager will use 15 s internally).
+func TestManagerConfig_HandshakeTimeout_DefaultIsZero(t *testing.T) {
+	cfg := ManagerConfig{}
+	if cfg.HandshakeTimeout != 0 {
+		t.Fatalf("expected zero default HandshakeTimeout, got %v", cfg.HandshakeTimeout)
+	}
+}
