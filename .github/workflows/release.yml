@@ -50,6 +50,11 @@ jobs:
           go build -ldflags="-s -w" -o sms-gate-darwin-arm64 ./cmd/gateway
           tar czf sms-gate-darwin-arm64.tar.gz sms-gate-darwin-arm64
 
+      - name: Generate CycloneDX SBOM
+        run: |
+          go install github.com/CycloneDX/cyclonedx-gomod/cmd/cyclonedx-gomod@latest
+          cyclonedx-gomod mod -json -output sms-gate.cdx.json
+
       - name: Create GitHub release
         uses: softprops/action-gh-release@v3
         with:
@@ -58,3 +63,4 @@ jobs:
             sms-gate-linux-amd64.tar.gz
             sms-gate-linux-arm64.tar.gz
             sms-gate-darwin-arm64.tar.gz
+            sms-gate.cdx.json

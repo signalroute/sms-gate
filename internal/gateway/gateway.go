@@ -10,7 +10,6 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
-	"net/http/pprof"
 	"os"
 	"os/signal"
 	"runtime"
@@ -133,12 +132,8 @@ func (g *Gateway) Run(ctx context.Context) error {
 	mux.HandleFunc("/modems", g.modemsHandler)
 	mux.HandleFunc("/modems/reset", g.modemResetHandler)
 
-	// pprof endpoints for CPU/memory profiling (#79)
-	mux.HandleFunc("/debug/pprof/", pprof.Index)
-	mux.HandleFunc("/debug/pprof/cmdline", pprof.Cmdline)
-	mux.HandleFunc("/debug/pprof/profile", pprof.Profile)
-	mux.HandleFunc("/debug/pprof/symbol", pprof.Symbol)
-	mux.HandleFunc("/debug/pprof/trace", pprof.Trace)
+	// pprof endpoints (enabled with -tags pprof)
+	registerPprof(mux)
 	metricsSrv := &http.Server{
 		Addr:    g.conf.Metrics.Addr,
 		Handler: mux,

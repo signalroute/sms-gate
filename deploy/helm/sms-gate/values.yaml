@@ -1,0 +1,79 @@
+# Default values for sms-gate Helm chart.
+
+replicaCount: 1
+
+image:
+  repository: ghcr.io/signalroute/sms-gate
+  pullPolicy: IfNotPresent
+  tag: ""  # Defaults to .Chart.AppVersion
+
+imagePullSecrets: []
+nameOverride: ""
+fullnameOverride: ""
+
+# Gateway configuration — maps to config.yaml keys.
+config:
+  logLevel: info
+  tunnel:
+    url: "wss://cloud.example.com/ws"
+    # token is read from the secret below, not here.
+  metrics:
+    addr: ":9101"
+
+# Secret containing GATEWAY_TOKEN.
+existingSecret: ""
+secretKey: "gateway-token"
+
+serviceAccount:
+  create: true
+  annotations: {}
+  name: ""
+
+podAnnotations:
+  prometheus.io/scrape: "true"
+  prometheus.io/port: "9101"
+  prometheus.io/path: "/metrics"
+
+podSecurityContext:
+  runAsNonRoot: true
+  runAsUser: 65534
+  fsGroup: 65534
+
+securityContext:
+  readOnlyRootFilesystem: true
+  allowPrivilegeEscalation: false
+  capabilities:
+    drop: [ALL]
+
+service:
+  type: ClusterIP
+  metricsPort: 9101
+
+resources:
+  limits:
+    cpu: 500m
+    memory: 128Mi
+  requests:
+    cpu: 100m
+    memory: 64Mi
+
+nodeSelector: {}
+
+tolerations: []
+
+affinity: {}
+
+# USB device passthrough — requires the device plugin or privileged mode.
+usbDevices:
+  enabled: false
+  # hostPath devices to mount (e.g., /dev/ttyUSB0).
+  devices: []
+  # - /dev/ttyUSB0
+  # - /dev/ttyUSB1
+
+# Persistent volume for SQLite buffer.
+persistence:
+  enabled: true
+  storageClass: ""
+  accessModes: [ReadWriteOnce]
+  size: 1Gi
