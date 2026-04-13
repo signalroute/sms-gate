@@ -75,6 +75,11 @@ type Serializer struct {
 	// URCCH delivers unsolicited lines to the modem worker.
 	URCCH chan string // buffered, size 64
 
+	// ObserveLatency, when non-nil, is called after every Execute call with
+	// the command string and round-trip duration.  The worker wires this to
+	// the smsgate_at_command_duration_seconds histogram.
+	ObserveLatency func(cmd string, dur time.Duration)
+
 	closeOnce sync.Once
 	closed    chan struct{}
 	log       *slog.Logger
@@ -170,6 +175,8 @@ func (s *Serializer) Execute(cmd string, timeout time.Duration) ([]string, error
 		return nil, fmt.Errorf("write AT command: %w", err)
 	}
 
+	start := time.Now()
+
 	// Collect response lines until OK/ERROR/timeout.
 	timer := time.NewTimer(timeout)
 	defer timer.Stop()
@@ -180,13 +187,25 @@ func (s *Serializer) Execute(cmd string, timeout time.Duration) ([]string, error
 		case line := <-p.linesCh:
 			switch {
 			case line == "OK":
+				if fn := s.ObserveLatency; fn != nil {
+					fn(cmd, time.Since(start))
+				}
 				return lines, nil
 			case line == "ERROR":
+				if fn := s.ObserveLatency; fn != nil {
+					fn(cmd, time.Since(start))
+				}
 				return lines, ErrATError
 			case strings.HasPrefix(line, "+CME ERROR:"):
+				if fn := s.ObserveLatency; fn != nil {
+					fn(cmd, time.Since(start))
+				}
 				code := strings.TrimSpace(strings.TrimPrefix(line, "+CME ERROR:"))
 				return lines, fmt.Errorf("CME ERROR %s", code)
 			case strings.HasPrefix(line, "+CMS ERROR:"):
+				if fn := s.ObserveLatency; fn != nil {
+					fn(cmd, time.Since(start))
+				}
 				code := strings.TrimSpace(strings.TrimPrefix(line, "+CMS ERROR:"))
 				return lines, fmt.Errorf("CMS ERROR %s", code)
 			default:

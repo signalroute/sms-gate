@@ -227,8 +227,16 @@ func (w *Worker) Run(ctx context.Context, registry *Registry) State {
 	atSer := at.NewSerializer(ser, log)
 	defer atSer.Close()
 
+	// Wire AT command latency into the smsgate_at_command_duration_seconds histogram.
+	if w.metrics != nil {
+		atSer.ObserveLatency = func(cmd string, dur time.Duration) {
+			w.metrics.ATCommandDuration.WithLabelValues(cmd).Observe(dur.Seconds())
+		}
+	}
+
 	// ── Init sequence (§4.1.2) ───────────────────────────────────────────
 
+	initStart := time.Now()
 	if err := w.runInitSequence(atSer, log); err != nil {
 		log.Error("init sequence failed", "err", err)
 		w.state.Store(int32(StateFailed))
@@ -240,6 +248,10 @@ func (w *Worker) Run(ctx context.Context, registry *Registry) State {
 	w.limiter.Register(w.iccid, w.rateCfg)
 	log = log.With("iccid", w.iccid)
 	log.Info("worker initialized and registered")
+
+	if w.metrics != nil {
+		w.metrics.ModemInitDuration.WithLabelValues(w.iccid).Observe(time.Since(initStart).Seconds())
+	}
 
 	w.state.Store(int32(StateActive))
 	w.metrics.ModemState.WithLabelValues(w.iccid).Set(float64(StateActive))
