@@ -9,10 +9,14 @@ import (
 	"database/sql"
 	"fmt"
 	"log/slog"
+	"regexp"
 	"time"
 
 	_ "modernc.org/sqlite"
 )
+
+// validICCID matches 19-20 digit ICCID strings.
+var validICCID = regexp.MustCompile(`^\d{19,20}$`)
 
 const schemaVersion = 1
 
@@ -92,6 +96,9 @@ func Open(path string, logger *slog.Logger) (*Buffer, error) {
 // If pdu_hash already exists (duplicate PDU), returns (0, nil) — caller
 // should proceed to SIM deletion without re-pushing to the cloud.
 func (b *Buffer) Insert(iccid, sender, body, pduHash, smsc string, receivedAt int64) (int64, bool, error) {
+	if !validICCID.MatchString(iccid) {
+		return 0, false, fmt.Errorf("invalid ICCID format: %q", iccid)
+	}
 	res, err := b.db.Exec(
 		`INSERT OR IGNORE INTO sms_buffer (iccid, sender, body, received_at, pdu_hash, smsc)
 		 VALUES (?, ?, ?, ?, ?, ?)`,

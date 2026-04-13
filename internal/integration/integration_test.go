@@ -241,7 +241,7 @@ func TestIntegration_SMSEventDelivery(t *testing.T) {
 	ms.waitForType(t, tunnel.TypeHello, 3*time.Second)
 
 	// Insert a pre-existing PENDING row (simulating an SMS received before connect).
-	id, _, err := buf.Insert("ICCID1", "+491234", "Your code is 881234",
+	id, _, err := buf.Insert("89490200001234567890", "+491234", "Your code is 881234",
 		"sha256:aabbccddeeff00112233445566778899aabbccddeeff00112233445566778899",
 		"+491722270333", time.Now().UnixMilli())
 	if err != nil {
@@ -252,7 +252,7 @@ func TestIntegration_SMSEventDelivery(t *testing.T) {
 	mgr.Push(tunnel.SMSReceivedEvent{
 		Envelope:   tunnel.NewEnvelope(tunnel.TypeSMSReceived),
 		GatewayID:  "gw-test-01",
-		ICCID:      "ICCID1",
+		ICCID:      "89490200001234567890",
 		Sender:     "+491234",
 		Body:       "Your code is 881234",
 		ReceivedAt: time.Now().UnixMilli(),
@@ -281,7 +281,7 @@ func TestIntegration_OfflineBufferFlushedOnConnect(t *testing.T) {
 		"sha256:3333333333333333333333333333333333333333333333333333333333333333",
 	}
 	for i, h := range hashes {
-		_, _, err := buf.Insert("ICCID1", "+491", "body", h, "", int64(1000+i))
+		_, _, err := buf.Insert("89490200001234567890", "+491", "body", h, "", int64(1000+i))
 		if err != nil {
 			t.Fatalf("pre-insert[%d]: %v", i, err)
 		}

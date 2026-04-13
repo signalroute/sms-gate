@@ -46,7 +46,7 @@ func TestInsert_PendingCount(t *testing.T) {
 
 	for i := 0; i < 5; i++ {
 		hash := "sha256:" + string(rune('a'+i)) + "bcd"
-		_, _, err := buf.Insert("ICCID1", "+491", "body", hash, "", time.Now().UnixMilli())
+		_, _, err := buf.Insert("89490200001234567890", "+491", "body", hash, "", time.Now().UnixMilli())
 		if err != nil {
 			t.Fatalf("Insert[%d]: %v", i, err)
 		}
@@ -68,7 +68,7 @@ func TestInsert_DuplicatePDUHash(t *testing.T) {
 
 	hash := "sha256:deadbeef000000000000000000000000000000000000000000000000000000"
 
-	id1, isDup1, err := buf.Insert("ICCID1", "+491", "msg", hash, "", time.Now().UnixMilli())
+	id1, isDup1, err := buf.Insert("89490200001234567890", "+491", "msg", hash, "", time.Now().UnixMilli())
 	if err != nil {
 		t.Fatalf("first Insert: %v", err)
 	}
@@ -76,7 +76,7 @@ func TestInsert_DuplicatePDUHash(t *testing.T) {
 		t.Error("first insert flagged as duplicate")
 	}
 
-	id2, isDup2, err := buf.Insert("ICCID1", "+491", "msg", hash, "", time.Now().UnixMilli())
+	id2, isDup2, err := buf.Insert("89490200001234567890", "+491", "msg", hash, "", time.Now().UnixMilli())
 	if err != nil {
 		t.Fatalf("second Insert: %v", err)
 	}
@@ -100,8 +100,8 @@ func TestInsert_SameHashDifferentICCID(t *testing.T) {
 	buf := openTestBuffer(t)
 	hash := "sha256:cafebabe000000000000000000000000000000000000000000000000000000"
 
-	_, isDup1, _ := buf.Insert("ICCID1", "+491", "msg", hash, "", time.Now().UnixMilli())
-	_, isDup2, _ := buf.Insert("ICCID2", "+492", "msg", hash, "", time.Now().UnixMilli())
+	_, isDup1, _ := buf.Insert("89490200001234567890", "+491", "msg", hash, "", time.Now().UnixMilli())
+	_, isDup2, _ := buf.Insert("89490200009876543210", "+492", "msg", hash, "", time.Now().UnixMilli())
 
 	if isDup1 {
 		t.Error("first should not be duplicate")
@@ -116,7 +116,7 @@ func TestInsert_SameHashDifferentICCID(t *testing.T) {
 func TestMarkDelivered(t *testing.T) {
 	buf := openTestBuffer(t)
 
-	id, _, err := buf.Insert("ICCID1", "+491", "test", "sha256:1111", "", time.Now().UnixMilli())
+	id, _, err := buf.Insert("89490200001234567890", "+491", "test", "sha256:1111", "", time.Now().UnixMilli())
 	if err != nil {
 		t.Fatalf("Insert: %v", err)
 	}
@@ -137,7 +137,7 @@ func TestMarkDelivered_PartialDelivery(t *testing.T) {
 
 	var ids [3]int64
 	for i := range ids {
-		id, _, err := buf.Insert("ICCID1", "+491", "msg", "sha256:"+string(rune('A'+i))+"111", "", time.Now().UnixMilli())
+		id, _, err := buf.Insert("89490200001234567890", "+491", "msg", "sha256:"+string(rune('A'+i))+"111", "", time.Now().UnixMilli())
 		if err != nil {
 			t.Fatalf("Insert[%d]: %v", i, err)
 		}
@@ -162,7 +162,7 @@ func TestPendingRows_OrderByID(t *testing.T) {
 
 	senders := []string{"+491", "+492", "+493"}
 	for i, s := range senders {
-		_, _, err := buf.Insert("ICCID1", s, "body", "sha256:hash"+string(rune('0'+i)), "", int64(1000+i))
+		_, _, err := buf.Insert("89490200001234567890", s, "body", "sha256:hash"+string(rune('0'+i)), "", int64(1000+i))
 		if err != nil {
 			t.Fatalf("Insert: %v", err)
 		}
@@ -187,8 +187,8 @@ func TestPendingRows_OrderByID(t *testing.T) {
 func TestPendingRows_ExcludesDelivered(t *testing.T) {
 	buf := openTestBuffer(t)
 
-	id1, _, _ := buf.Insert("ICCID1", "+491", "pending", "sha256:P111", "", time.Now().UnixMilli())
-	id2, _, _ := buf.Insert("ICCID1", "+492", "delivered", "sha256:D222", "", time.Now().UnixMilli())
+	id1, _, _ := buf.Insert("89490200001234567890", "+491", "pending", "sha256:P111", "", time.Now().UnixMilli())
+	id2, _, _ := buf.Insert("89490200001234567890", "+492", "delivered", "sha256:D222", "", time.Now().UnixMilli())
 
 	buf.MarkDelivered(id2)
 
@@ -212,7 +212,7 @@ func TestPurge_RemovesOldDelivered(t *testing.T) {
 	// The purge works on the created_at column (Unix ms).
 	// To test "old" rows we need to insert and then update their created_at
 	// to be older than the retention window.
-	id, _, err := buf.Insert("ICCID1", "+491", "old msg", "sha256:OLD1", "", time.Now().UnixMilli())
+	id, _, err := buf.Insert("89490200001234567890", "+491", "old msg", "sha256:OLD1", "", time.Now().UnixMilli())
 	if err != nil {
 		t.Fatalf("Insert: %v", err)
 	}
@@ -237,7 +237,7 @@ func TestPurge_RemovesOldDelivered(t *testing.T) {
 func TestPurge_KeepsRecentDelivered(t *testing.T) {
 	buf := openTestBuffer(t)
 
-	id, _, _ := buf.Insert("ICCID1", "+491", "recent", "sha256:NEW1", "", time.Now().UnixMilli())
+	id, _, _ := buf.Insert("89490200001234567890", "+491", "recent", "sha256:NEW1", "", time.Now().UnixMilli())
 	buf.MarkDelivered(id)
 
 	n, err := buf.Purge(7)
@@ -253,7 +253,7 @@ func TestPurge_NeverPurgesPending(t *testing.T) {
 	buf := openTestBuffer(t)
 
 	// Insert a PENDING row with a very old date.
-	id, _, _ := buf.Insert("ICCID1", "+491", "old pending", "sha256:OLD2", "", time.Now().UnixMilli())
+	id, _, _ := buf.Insert("89490200001234567890", "+491", "old pending", "sha256:OLD2", "", time.Now().UnixMilli())
 
 	oldTs := time.Now().AddDate(0, 0, -30).UnixMilli()
 	buf.db.Exec(`UPDATE sms_buffer SET created_at = ? WHERE id = ?`, oldTs, id)
@@ -278,7 +278,7 @@ func TestConcurrentInserts(t *testing.T) {
 		go func() {
 			defer wg.Done()
 			hash := "sha256:" + string(rune('A'+i%26)) + string(rune('0'+i%10)) + "000"
-			_, _, err := buf.Insert("ICCID1", "+491", "body", hash+string(rune(i)), "", time.Now().UnixMilli())
+			_, _, err := buf.Insert("89490200001234567890", "+491", "body", hash+string(rune(i)), "", time.Now().UnixMilli())
 			if err != nil {
 				t.Errorf("goroutine %d Insert: %v", i, err)
 			}

@@ -30,6 +30,13 @@ import (
 
 const agentVersion = "2.0.0"
 
+// BuildMeta holds build-time metadata exposed by /health.
+type BuildMeta struct {
+	Commit    string
+	BuildTime string
+	GoVersion string
+}
+
 // Gateway is the top-level runtime object.
 type Gateway struct {
 	conf      *cfg.GatewayConfig
@@ -42,11 +49,20 @@ type Gateway struct {
 	rtr       *router.Router
 	promReg   *prometheus.Registry
 	startTime time.Time
+	build     BuildMeta
+}
+
+// Option configures optional Gateway behaviour.
+type Option func(*Gateway)
+
+// WithBuildMeta attaches build-time metadata to the gateway.
+func WithBuildMeta(m BuildMeta) Option {
+	return func(g *Gateway) { g.build = m }
 }
 
 // New constructs the Gateway, opening the SQLite buffer and wiring all subsystems.
 // It does not start any goroutines — call Run() for that.
-func New(conf *cfg.GatewayConfig, log *slog.Logger) (*Gateway, error) {
+func New(conf *cfg.GatewayConfig, log *slog.Logger, opts ...Option) (*Gateway, error) {
 	promReg := prometheus.NewRegistry()
 	m := metrics.New(promReg)
 
@@ -69,6 +85,9 @@ func New(conf *cfg.GatewayConfig, log *slog.Logger) (*Gateway, error) {
 		startTime: time.Now(),
 	}
 
+	for _, o := range opts {
+		o(g)
+	}
 	// Tunnel Manager — eventFn is wired below after rtr is built.
 	mgr := tunnel.NewManager(tunnel.ManagerConfig{
 		GatewayID:         conf.Gateway.ID,
@@ -272,9 +291,12 @@ func (g *Gateway) modemStatuses() []tunnel.ModemStatus {
 
 // healthResponse is the JSON body returned by GET /health.
 type healthResponse struct {
-	Status  string `json:"status"`
-	Version string `json:"version"`
-	Uptime  string `json:"uptime"`
+	Status    string `json:"status"`
+	Version   string `json:"version"`
+	Commit    string `json:"commit,omitempty"`
+	BuildTime string `json:"build_time,omitempty"`
+	GoVersion string `json:"go_version,omitempty"`
+	Uptime    string `json:"uptime"`
 }
 
 // healthHandler serves GET /health.
@@ -289,8 +311,11 @@ func (g *Gateway) healthHandler(w http.ResponseWriter, r *http.Request) {
 	uptime := time.Since(g.startTime).Round(time.Second).String()
 
 	resp := healthResponse{
-		Version: agentVersion,
-		Uptime:  uptime,
+		Version:   agentVersion,
+		Commit:    g.build.Commit,
+		BuildTime: g.build.BuildTime,
+		GoVersion: g.build.GoVersion,
+		Uptime:    uptime,
 	}
 
 	statusCode := http.StatusOK

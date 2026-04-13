@@ -47,7 +47,7 @@ func TestInsert_DeduplicationTable(t *testing.T) {
 		t.Run(fmt.Sprintf("dup_%d", i), func(t *testing.T) {
 			hash := fmt.Sprintf("sha256:dup%08x0000000000000000000000000000000000000000000000000", i)
 
-			_, isDup1, err := buf.Insert("ICCID1", "+491", "msg", hash, "", ts)
+			_, isDup1, err := buf.Insert("89490200001234567890", "+491", "msg", hash, "", ts)
 			if err != nil {
 				t.Fatalf("first Insert: %v", err)
 			}
@@ -55,7 +55,7 @@ func TestInsert_DeduplicationTable(t *testing.T) {
 				t.Error("first insert should not be duplicate")
 			}
 
-			id2, isDup2, err := buf.Insert("ICCID1", "+491", "msg", hash, "", ts)
+			id2, isDup2, err := buf.Insert("89490200001234567890", "+491", "msg", hash, "", ts)
 			if err != nil {
 				t.Fatalf("second Insert: %v", err)
 			}
@@ -79,7 +79,7 @@ func TestPendingCount_Comprehensive(t *testing.T) {
 
 			for i := 0; i < n; i++ {
 				hash := fmt.Sprintf("sha256:cnt%04d%08x000000000000000000000000000000000000000000", n, i)
-				_, _, err := buf.Insert("ICCID1", "+491", "body", hash, "", ts)
+				_, _, err := buf.Insert("89490200001234567890", "+491", "body", hash, "", ts)
 				if err != nil {
 					t.Fatalf("Insert[%d]: %v", i, err)
 				}
@@ -106,7 +106,7 @@ func TestMarkDelivered_Comprehensive(t *testing.T) {
 	ids := make([]int64, total)
 	for i := 0; i < total; i++ {
 		hash := fmt.Sprintf("sha256:ack%08x0000000000000000000000000000000000000000000000000", i)
-		id, _, err := buf.Insert("ICCID1", "+491", "body", hash, "", ts)
+		id, _, err := buf.Insert("89490200001234567890", "+491", "body", hash, "", ts)
 		if err != nil {
 			t.Fatalf("Insert[%d]: %v", i, err)
 		}

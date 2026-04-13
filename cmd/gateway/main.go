@@ -15,6 +15,7 @@ import (
 	"log/slog"
 	"os"
 	"os/signal"
+	"runtime"
 	"syscall"
 
 	"github.com/signalroute/sms-gate/internal/config"
@@ -29,8 +30,12 @@ func init() {
 	}
 }
 
-// version is injected at build time via -ldflags "-X main.version=<tag>".
-var version = "dev"
+// Build-time variables injected via -ldflags.
+var (
+	version   = "dev"
+	commit    = "unknown"
+	buildTime = "unknown"
+)
 
 func main() {
 	if err := run(); err != nil {
@@ -82,7 +87,11 @@ func run() error {
 	signal.Ignore(syscall.SIGPIPE)
 
 	// ── Build and run gateway ──────────────────────────────────────────────
-	gw, err := gateway.New(conf, log)
+	gw, err := gateway.New(conf, log, gateway.WithBuildMeta(gateway.BuildMeta{
+		Commit:    commit,
+		BuildTime: buildTime,
+		GoVersion: runtime.Version(),
+	}))
 	if err != nil {
 		return fmt.Errorf("build gateway: %w", err)
 	}

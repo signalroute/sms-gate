@@ -102,6 +102,8 @@ func NewSerializer(port io.ReadWriteCloser, log *slog.Logger) *Serializer {
 // It classifies each line and routes it appropriately.
 func (s *Serializer) reader() {
 	sc := bufio.NewScanner(s.port)
+	// Increase the per-line buffer to handle large AT responses (#70).
+	sc.Buffer(make([]byte, 0, 4096), 256*1024)
 	for sc.Scan() {
 		line := strings.TrimRight(sc.Text(), "\r")
 		if line == "" {
@@ -506,18 +508,37 @@ func (s *Serializer) StorageStatus() (int, int, error) {
 }
 
 // ReadSMS reads a single SMS at the given index. Returns raw PDU hex string.
+// Handles multi-line responses (#1) and empty storage slots (#59).
 func (s *Serializer) ReadSMS(index int) (string, error) {
 	lines, err := s.Execute(fmt.Sprintf("AT+CMGR=%d", index), TimeoutStd)
 	if err != nil {
 		return "", err
 	}
-	// Response: "+CMGR: <stat>,,...\r\n<PDU hex>"
+
+	// Empty storage: modem returns just OK with no +CMGR header.
+	if len(lines) == 0 {
+		return "", fmt.Errorf("empty storage slot %d: %w", index, ErrMalformedResponse)
+	}
+
+	// Find the +CMGR: header and collect all subsequent lines as PDU data.
 	for i, l := range lines {
-		if strings.HasPrefix(l, "+CMGR:") && i+1 < len(lines) {
-			return strings.TrimSpace(lines[i+1]), nil
+		if strings.HasPrefix(l, "+CMGR:") {
+			if i+1 >= len(lines) {
+				return "", fmt.Errorf("no PDU after +CMGR header: %w", ErrMalformedResponse)
+			}
+			// Concatenate all remaining lines — some modems split long PDUs.
+			var pdu strings.Builder
+			for _, part := range lines[i+1:] {
+				pdu.WriteString(strings.TrimSpace(part))
+			}
+			hex := pdu.String()
+			if hex == "" {
+				return "", fmt.Errorf("empty PDU in CMGR response: %w", ErrMalformedResponse)
+			}
+			return hex, nil
 		}
 	}
-	return "", fmt.Errorf("no PDU in CMGR response: %w", ErrMalformedResponse)
+	return "", fmt.Errorf("no +CMGR header in response: %w", ErrMalformedResponse)
 }
 
 // DeleteSMS deletes the SMS at the given index.
