@@ -688,7 +688,14 @@ func (w *Worker) doSendSMS(s *at.Serializer, task tunnel.Task, log *slog.Logger)
 	w.sent1H.Add(1)
 	w.metrics.SMSSent.WithLabelValues(w.iccid, "success").Inc()
 	log.Info("SMS sent", "to", p.To, "parts", len(parts))
-	return nil, nil
+
+	result := tunnel.SendSMSResult{
+		Parts:     len(parts),
+		SignalCSQ: int(w.signalRSSI.Load()),
+		RegStatus: tunnel.RegStatusString(int(w.regStat.Load())),
+	}
+	resJSON, _ := json.Marshal(result)
+	return resJSON, nil
 }
 
 func (w *Worker) doRebootModem(ctx context.Context, s *at.Serializer, task tunnel.Task, log *slog.Logger) *tunnel.TaskError {

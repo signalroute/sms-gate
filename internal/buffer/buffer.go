@@ -14,6 +14,8 @@ import (
 	_ "modernc.org/sqlite"
 )
 
+const schemaVersion = 1
+
 const schema = `
 PRAGMA journal_mode = WAL;
 PRAGMA synchronous  = NORMAL;
@@ -67,6 +69,20 @@ func Open(path string, logger *slog.Logger) (*Buffer, error) {
 	if _, err := db.Exec(schema); err != nil {
 		db.Close()
 		return nil, fmt.Errorf("apply schema: %w", err)
+	}
+
+	// Schema version tracking (#80).
+	var ver int
+	_ = db.QueryRow("PRAGMA user_version").Scan(&ver)
+	if ver == 0 {
+		// Fresh database or unversioned — stamp current version.
+		if _, err := db.Exec(fmt.Sprintf("PRAGMA user_version = %d", schemaVersion)); err != nil {
+			db.Close()
+			return nil, fmt.Errorf("set schema version: %w", err)
+		}
+	} else if ver > schemaVersion {
+		db.Close()
+		return nil, fmt.Errorf("buffer schema version %d is newer than supported %d — upgrade sms-gate", ver, schemaVersion)
 	}
 
 	return &Buffer{db: db, logger: logger}, nil

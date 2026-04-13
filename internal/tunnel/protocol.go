@@ -183,6 +183,13 @@ type CheckSignalResult struct {
 	RegStatus string `json:"reg_status"`
 }
 
+// SendSMSResult is the result field in a successful SEND_SMS TaskAck (#93).
+type SendSMSResult struct {
+	Parts     int    `json:"parts"`
+	SignalCSQ int    `json:"signal_csq"` // last-known CSQ (0-31, 99=unknown)
+	RegStatus string `json:"reg_status"`
+}
+
 // regStatusString converts a +CREG stat integer to a human-readable string.
 func RegStatusString(stat int) string {
 	switch stat {

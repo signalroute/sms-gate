@@ -94,3 +94,20 @@ func (r *Registry) Snapshot() map[string]WorkerStatus {
 	}
 	return out
 }
+
+// PoolCounts returns (total, active, banned) worker counts for pool metrics (#57).
+func (r *Registry) PoolCounts() (total, active, banned int) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	total = len(r.workers)
+	for _, w := range r.workers {
+		st := State(w.state.Load())
+		switch st {
+		case StateActive, StateExecuting:
+			active++
+		case StateBanned:
+			banned++
+		}
+	}
+	return
+}

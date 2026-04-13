@@ -76,6 +76,11 @@ func run() error {
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
 
+	// Ignore SIGPIPE to prevent process exit when the cloud server disconnects
+	// during a tunnel write (#87). Go's runtime handles SIGPIPE on stdout/stderr
+	// but not on arbitrary sockets.
+	signal.Ignore(syscall.SIGPIPE)
+
 	// ── Build and run gateway ──────────────────────────────────────────────
 	gw, err := gateway.New(conf, log)
 	if err != nil {
