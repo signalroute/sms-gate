@@ -1,0 +1,19 @@
+# AT+CIMI responses — IMSI (International Mobile Subscriber Identity)
+# Format: <imsi>  (15 digits)
+
+# Standard 15-digit IMSI
+262010123456789
+OK
+
+# Another valid IMSI (different MCC/MNC)
+310260987654321
+OK
+
+# SIM not inserted
++CME ERROR: 10
+
+# SIM not ready (still initialising)
++CME ERROR: 14
+
+# PIN required
++CME ERROR: 11

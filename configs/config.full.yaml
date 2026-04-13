@@ -1,0 +1,125 @@
+# sms-gate full configuration reference
+# All values shown are defaults unless noted otherwise.
+#
+# Sensitive values (tokens, keys) should NEVER be placed directly in this file.
+# Use ${ENV_VAR} substitution and load from a 600-mode env file.
+# See .env.example for the full list of supported environment variables.
+#
+# Usage:
+#   cp configs/config.full.yaml /etc/go-sms-gate/config.yaml
+#   chmod 640 /etc/go-sms-gate/config.yaml
+
+# ── Gateway identity ─────────────────────────────────────────────────────────
+gateway:
+  # required — unique identifier for this hardware node.
+  # Appears in all log lines, heartbeat frames, Prometheus labels, and alerts.
+  # Override with the GATEWAY_ID environment variable.
+  id: "${GATEWAY_ID}"
+
+  # Log verbosity.  debug | info | warn | error
+  # Production: "info".  Serial debugging: "debug".
+  # Override with LOG_LEVEL.
+  log_level: "info"
+
+  # Log output format.  text | json
+  # Use "json" in production for structured logs (journald / Loki friendly).
+  # Override with LOG_FORMAT.
+  log_format: "text"
+
+# ── WebSocket tunnel ─────────────────────────────────────────────────────────
+tunnel:
+  # required — secure WebSocket endpoint on the Cloud Server.
+  # Must use wss:// in production.
+  # Override with TUNNEL_URL.
+  url: "${TUNNEL_URL}"
+
+  # required — bearer token presented during the WebSocket upgrade handshake.
+  # Override with TUNNEL_TOKEN (preferred over inline value).
+  token: "${TUNNEL_TOKEN}"
+
+  # WebSocket protocol-level keepalive (§3.2).
+  # A Ping frame is sent every ping_interval_s seconds.
+  ping_interval_s: 30
+
+  # Seconds to wait for a Pong before declaring the connection dead.
+  ping_timeout_s: 10
+
+  # Application-level heartbeat interval (§3.5.5).
+  # Distinct from ping/pong — carries modem telemetry to the cloud.
+  heartbeat_interval_s: 60
+
+  # Seconds to wait for SMS_DELIVERED_ACK from the cloud (§3.5.2).
+  # Unacknowledged messages are replayed on the next reconnect.
+  ack_timeout_s: 10
+
+  # Reconnection backoff: delay = min(base * 2^attempt, max) + jitter.
+  reconnect_base_s: 1    # initial reconnect delay in seconds
+  reconnect_max_s: 300   # maximum reconnect delay (5 minutes)
+
+# ── Offline buffer (SQLite WAL) ───────────────────────────────────────────────
+buffer:
+  # Path to the WAL-mode SQLite database.
+  # With systemd StateDirectory=go-sms-gate, use /var/lib/go-sms-gate/sms.db
+  db_path: "./sms.db"
+
+  # Days to retain DELIVERED rows before purging them from the buffer.
+  retention_days: 7
+
+  # Minutes between defensive buffer flushes (replays PENDING rows).
+  # Guards against missed ACKs not caught by the tunnel reconnect path.
+  flush_interval_m: 10
+
+# ── Health monitoring ─────────────────────────────────────────────────────────
+health:
+  # Seconds between modem registration keepalives (AT+CREG? / AT+CSQ).
+  keepalive_interval_s: 60
+
+  # SIM storage utilisation (%) that triggers a SIM_FULL warning event.
+  sim_capacity_warn_pct: 80
+
+  # SIM storage utilisation (%) that triggers an autonomous AT+CMGD=1,4 purge.
+  # Last-resort safety net — PDUs deleted here bypass SQLite.
+  sim_capacity_purge_pct: 95
+
+  # Seconds between AT+CSQ signal quality polls.
+  # Override with SIGNAL_POLL_INTERVAL.
+  signal_poll_interval_s: 30
+
+# ── Prometheus metrics ────────────────────────────────────────────────────────
+metrics:
+  # Scrape endpoint for Prometheus.
+  # IMPORTANT: bind to loopback (127.0.0.1:9200), never 0.0.0.0.
+  # Override with METRICS_ADDR.
+  addr: ":9200"
+
+# ── Modem configuration ───────────────────────────────────────────────────────
+# One entry per physical USB modem (or TCP-exposed emulator).
+# The gateway spawns one goroutine per modem; workers are fully isolated.
+modems:
+  - # Serial port path or TCP address (e.g. 127.0.0.1:7000 for modem-emu).
+    port: "/dev/ttyUSB0"
+
+    # Baud rate.  Common values: 9600, 19200, 38400, 57600, 115200.
+    baud: 115200
+
+    # Per-SIM SMS send rate limits (sliding windows).
+    # Prevents carrier bans on high-volume SIMs.
+    rate_limit:
+      per_min:  3    # max outbound SMS per minute
+      per_hour: 30   # max outbound SMS per hour
+      per_day:  200  # max outbound SMS per day
+
+  - port: "/dev/ttyUSB1"
+    baud: 115200
+    rate_limit:
+      per_min:  3
+      per_hour: 30
+      per_day:  200
+
+  # Add more modems as needed:
+  # - port: "/dev/ttyUSB2"
+  #   baud: 115200
+  #   rate_limit:
+  #     per_min:  3
+  #     per_hour: 30
+  #     per_day:  200

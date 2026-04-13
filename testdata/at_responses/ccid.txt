@@ -1,0 +1,20 @@
+# AT+CCID responses — SIM ICCID (Integrated Circuit Card Identifier)
+# Format: +ICCID: <iccid>  or  <iccid>  (vendor-dependent)
+
+# Standard 20-digit ICCID
++ICCID: 89490200001234567890
+OK
+
+# 19-digit ICCID (trailing F padding stripped by some modems)
++ICCID: 8949020000123456789
+OK
+
+# Alternative response format (no +ICCID: prefix, some Quectel modules)
+89490200009876543210
+OK
+
+# SIM not inserted
++CME ERROR: 10
+
+# SIM initialising (not ready yet)
++CME ERROR: 14
