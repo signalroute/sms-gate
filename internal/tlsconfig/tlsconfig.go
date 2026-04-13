@@ -59,6 +59,7 @@ func FromEnv() (*tls.Config, error) {
 		cfg.Certificates = []tls.Certificate{cert}
 	}
 
+	cfg.MinVersion = tls.VersionTLS12
 	return cfg, nil
 }
 

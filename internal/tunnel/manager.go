@@ -71,11 +71,20 @@ func (s TunnelState) String() string {
 
 // ── Manager config ────────────────────────────────────────────────────────
 
+// MaxInboundPayloadBytes is the maximum accepted size of a raw inbound
+// WebSocket message. Messages larger than this are rejected before unmarshalling
+// to guard against memory exhaustion (#123).
+const MaxInboundPayloadBytes = 64 * 1024
+
 type ManagerConfig struct {
 	GatewayID        string
 	AgentVersion     string
 	URL              string
 	Token            string
+	// TokenFn, when non-nil, is called on each dial to obtain the bearer token.
+	// This allows token rotation without restarting the gateway (#184).
+	// When nil, Token is used as a static value.
+	TokenFn           func() string
 	PingInterval     time.Duration
 	PingTimeout      time.Duration
 	HeartbeatInterval time.Duration
@@ -92,6 +101,9 @@ type ManagerConfig struct {
 	// INSECURE — only set this in local development environments.
 	// The gateway logs a prominent warning when this is true (#177).
 	TLSSkipVerify bool
+	// HandshakeTimeout controls the WebSocket handshake deadline (#125).
+	// Defaults to 15 seconds when zero.
+	HandshakeTimeout time.Duration
 }
 
 // Manager manages the WebSocket tunnel lifecycle.
