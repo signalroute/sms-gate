@@ -52,6 +52,9 @@ type Gateway struct {
 
 	// ModemReconnectTotal counts modem reconnection attempts (labels: port).
 	ModemReconnectTotal *prometheus.CounterVec
+
+	// ModemSignalStrength is the current AT+CSQ signal quality in dBm per iccid.
+	ModemSignalStrength *prometheus.GaugeVec
 }
 
 // New creates and registers all metrics with the given registry.
@@ -142,6 +145,11 @@ func New(reg prometheus.Registerer) *Gateway {
 			Name: "smsgate_modem_reconnect_total",
 			Help: "Total modem reconnection attempts, by port.",
 		}, []string{"port"}),
+
+		ModemSignalStrength: prometheus.NewGaugeVec(prometheus.GaugeOpts{
+			Name: "smsgate_modem_signal_strength",
+			Help: "Current AT+CSQ signal strength in dBm, by iccid.",
+		}, []string{"iccid"}),
 	}
 
 	reg.MustRegister(
@@ -162,6 +170,7 @@ func New(reg prometheus.Registerer) *Gateway {
 		g.TasksDropped,
 		g.WorkerStalls,
 		g.ModemReconnectTotal,
+		g.ModemSignalStrength,
 	)
 	return g
 }

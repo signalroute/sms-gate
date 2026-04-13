@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"os"
 	"regexp"
+	"strconv"
 	"strings"
 
 	"gopkg.in/yaml.v3"
@@ -64,6 +65,7 @@ type HealthSection struct {
 	KeepaliveIntervalS    int `yaml:"keepalive_interval_s"`
 	SIMCapacityWarnPct    int `yaml:"sim_capacity_warn_pct"`
 	SIMCapacityPurgePct   int `yaml:"sim_capacity_purge_pct"`
+	SignalPollIntervalS   int `yaml:"signal_poll_interval_s"`
 }
 
 type MetricsSection struct {
@@ -113,6 +115,9 @@ func defaults(cfg *GatewayConfig) {
 	}
 	if cfg.Health.SIMCapacityPurgePct == 0 {
 		cfg.Health.SIMCapacityPurgePct = 95
+	}
+	if cfg.Health.SignalPollIntervalS == 0 {
+		cfg.Health.SignalPollIntervalS = 30
 	}
 	if cfg.Metrics.Addr == "" {
 		cfg.Metrics.Addr = ":9200"
@@ -203,6 +208,11 @@ func applyEnvOverrides(cfg *GatewayConfig) {
 	}
 	if v := os.Getenv("METRICS_ADDR"); v != "" {
 		cfg.Metrics.Addr = v
+	}
+	if v := os.Getenv("SIGNAL_POLL_INTERVAL"); v != "" {
+		if s, err := strconv.Atoi(v); err == nil && s > 0 {
+			cfg.Health.SignalPollIntervalS = s
+		}
 	}
 }
 
