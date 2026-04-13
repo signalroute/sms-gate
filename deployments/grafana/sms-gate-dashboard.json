@@ -1,0 +1,169 @@
+{
+  "annotations": { "list": [] },
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 1,
+  "id": null,
+  "links": [],
+  "panels": [
+    {
+      "title": "SMS Sent / min",
+      "type": "stat",
+      "gridPos": { "h": 4, "w": 6, "x": 0, "y": 0 },
+      "targets": [
+        {
+          "expr": "rate(smsgate_sms_sent_total[1m]) * 60",
+          "legendFormat": "sent/min"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": { "unit": "short", "thresholds": { "steps": [
+          { "color": "green", "value": null },
+          { "color": "yellow", "value": 0.5 },
+          { "color": "red", "value": 0 }
+        ]}}
+      }
+    },
+    {
+      "title": "SMS Received / min",
+      "type": "stat",
+      "gridPos": { "h": 4, "w": 6, "x": 6, "y": 0 },
+      "targets": [
+        {
+          "expr": "rate(smsgate_sms_received_total[1m]) * 60",
+          "legendFormat": "recv/min"
+        }
+      ]
+    },
+    {
+      "title": "Tasks Dropped / min",
+      "type": "stat",
+      "gridPos": { "h": 4, "w": 6, "x": 12, "y": 0 },
+      "targets": [
+        {
+          "expr": "rate(smsgate_tasks_dropped_total[1m]) * 60",
+          "legendFormat": "dropped/min"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": { "unit": "short", "thresholds": { "steps": [
+          { "color": "green", "value": null },
+          { "color": "red", "value": 1 }
+        ]}}
+      }
+    },
+    {
+      "title": "Active Serial Ports",
+      "type": "stat",
+      "gridPos": { "h": 4, "w": 6, "x": 18, "y": 0 },
+      "targets": [
+        {
+          "expr": "smsgate_active_serial_ports",
+          "legendFormat": "ports"
+        }
+      ]
+    },
+    {
+      "title": "AT Command Latency (p50 / p95 / p99)",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 4 },
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.50, rate(smsgate_at_command_duration_seconds_bucket[5m]))",
+          "legendFormat": "p50"
+        },
+        {
+          "expr": "histogram_quantile(0.95, rate(smsgate_at_command_duration_seconds_bucket[5m]))",
+          "legendFormat": "p95"
+        },
+        {
+          "expr": "histogram_quantile(0.99, rate(smsgate_at_command_duration_seconds_bucket[5m]))",
+          "legendFormat": "p99"
+        }
+      ],
+      "fieldConfig": { "defaults": { "unit": "s" } }
+    },
+    {
+      "title": "Task Round-Trip Latency (p50 / p95 / p99)",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 4 },
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.50, rate(smsgate_task_round_trip_seconds_bucket[5m]))",
+          "legendFormat": "p50"
+        },
+        {
+          "expr": "histogram_quantile(0.95, rate(smsgate_task_round_trip_seconds_bucket[5m]))",
+          "legendFormat": "p95"
+        },
+        {
+          "expr": "histogram_quantile(0.99, rate(smsgate_task_round_trip_seconds_bucket[5m]))",
+          "legendFormat": "p99"
+        }
+      ],
+      "fieldConfig": { "defaults": { "unit": "s" } }
+    },
+    {
+      "title": "Modem Init Duration",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 12 },
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.95, rate(smsgate_modem_init_duration_seconds_bucket[5m]))",
+          "legendFormat": "p95"
+        }
+      ],
+      "fieldConfig": { "defaults": { "unit": "s" } }
+    },
+    {
+      "title": "Buffer Pending & Outbox Depth",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 12 },
+      "targets": [
+        {
+          "expr": "smsgate_buffer_pending_count",
+          "legendFormat": "buffer pending"
+        },
+        {
+          "expr": "smsgate_outbox_depth",
+          "legendFormat": "outbox depth"
+        }
+      ]
+    },
+    {
+      "title": "Registration Failures / min",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 20 },
+      "targets": [
+        {
+          "expr": "rate(smsgate_registration_failures_total[5m]) * 60",
+          "legendFormat": "reg failures/min"
+        }
+      ]
+    },
+    {
+      "title": "Tunnel WebSocket Status",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 20 },
+      "targets": [
+        {
+          "expr": "smsgate_tunnel_connected",
+          "legendFormat": "connected"
+        },
+        {
+          "expr": "rate(smsgate_tunnel_reconnects_total[5m]) * 60",
+          "legendFormat": "reconnects/min"
+        }
+      ]
+    }
+  ],
+  "schemaVersion": 39,
+  "tags": ["sms-gate", "signalroute"],
+  "templating": { "list": [] },
+  "time": { "from": "now-1h", "to": "now" },
+  "timepicker": {},
+  "timezone": "browser",
+  "title": "SMS Gateway",
+  "uid": "sms-gate-overview",
+  "version": 1
+}

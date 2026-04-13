@@ -10,7 +10,12 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
+	"net/http/pprof"
+	"os"
+	"os/signal"
+	"runtime"
 	"sync"
+	"syscall"
 	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
@@ -107,6 +112,14 @@ func (g *Gateway) Run(ctx context.Context) error {
 	mux.Handle("/metrics", metrics.HandlerFor(g.promReg))
 	mux.HandleFunc("/health", g.healthHandler)
 	mux.HandleFunc("/modems", g.modemsHandler)
+	mux.HandleFunc("/modems/reset", g.modemResetHandler)
+
+	// pprof endpoints for CPU/memory profiling (#79)
+	mux.HandleFunc("/debug/pprof/", pprof.Index)
+	mux.HandleFunc("/debug/pprof/cmdline", pprof.Cmdline)
+	mux.HandleFunc("/debug/pprof/profile", pprof.Profile)
+	mux.HandleFunc("/debug/pprof/symbol", pprof.Symbol)
+	mux.HandleFunc("/debug/pprof/trace", pprof.Trace)
 	metricsSrv := &http.Server{
 		Addr:    g.conf.Metrics.Addr,
 		Handler: mux,
@@ -123,6 +136,23 @@ func (g *Gateway) Run(ctx context.Context) error {
 		shutCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
 		_ = metricsSrv.Shutdown(shutCtx)
+	})
+
+	// SIGUSR1 dumps all goroutine stacks to stderr (#77)
+	sigCh := make(chan os.Signal, 1)
+	signal.Notify(sigCh, syscall.SIGUSR1)
+	safe.Go(log, "sigusr1-handler", func() {
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case <-sigCh:
+				buf := make([]byte, 1<<20)
+				n := runtime.Stack(buf, true)
+				_, _ = os.Stderr.Write(buf[:n])
+				log.Info("goroutine dump written to stderr")
+			}
+		}
 	})
 
 	// Scrape queue depth and buffer stats every 15s and publish to Prometheus.
@@ -283,4 +313,27 @@ func (g *Gateway) modemsHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	w.Header().Set("Content-Type", "application/json")
 	_ = json.NewEncoder(w).Encode(statuses)
+}
+
+// modemResetHandler serves POST /modems/reset?iccid=<ICCID> (#158).
+// Triggers a soft reset on the modem matching the given ICCID.
+func (g *Gateway) modemResetHandler(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	iccid := r.URL.Query().Get("iccid")
+	if iccid == "" {
+		http.Error(w, `{"error":"missing iccid query parameter"}`, http.StatusBadRequest)
+		return
+	}
+	wk := g.reg.Get(iccid)
+	if wk == nil {
+		http.Error(w, `{"error":"modem not found"}`, http.StatusNotFound)
+		return
+	}
+	wk.RequestReset()
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusAccepted)
+	_, _ = w.Write([]byte(`{"status":"reset requested","iccid":"` + iccid + `"}`))
 }
