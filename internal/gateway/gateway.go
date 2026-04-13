@@ -76,6 +76,7 @@ func New(conf *cfg.GatewayConfig, log *slog.Logger) (*Gateway, error) {
 		ACKTimeout:        time.Duration(conf.Tunnel.ACKTimeoutS) * time.Second,
 		ReconnectBase:     time.Duration(conf.Tunnel.ReconnectBaseS) * time.Second,
 		ReconnectMax:      time.Duration(conf.Tunnel.ReconnectMaxS) * time.Second,
+		HandshakeTimeout:  time.Duration(conf.Tunnel.HandshakeTimeoutS) * time.Second,
 		Buf:               buf,
 		RetentionDays:     conf.Buffer.RetentionDays,
 		FlushInterval:     time.Duration(conf.Buffer.FlushIntervalM) * time.Minute,
