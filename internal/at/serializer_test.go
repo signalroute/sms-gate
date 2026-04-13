@@ -4,7 +4,9 @@
 package at
 
 import (
+	"errors"
 	"io"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -131,8 +133,15 @@ func TestExecute_ERROR(t *testing.T) {
 	}()
 
 	_, err := s.Execute("AT+FAKECMD", 2*time.Second)
-	if err != ErrATError {
+	if !errors.Is(err, ErrATError) {
 		t.Errorf("expected ErrATError, got %v", err)
+	}
+	var atErr *ATError
+	if !errors.As(err, &atErr) {
+		t.Fatalf("expected *ATError, got %T", err)
+	}
+	if atErr.Cmd != "AT+FAKECMD" {
+		t.Errorf("cmd: got %q, want AT+FAKECMD", atErr.Cmd)
 	}
 }
 
@@ -148,8 +157,15 @@ func TestExecute_CMEError(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected CME error, got nil")
 	}
-	if err.Error() != "CME ERROR 10" {
-		t.Errorf("error: got %q", err.Error())
+	var atErr *ATError
+	if !errors.As(err, &atErr) {
+		t.Fatalf("expected *ATError, got %T", err)
+	}
+	if atErr.Cmd != "AT+CLCK" {
+		t.Errorf("cmd: got %q", atErr.Cmd)
+	}
+	if !strings.Contains(atErr.Raw, "+CME ERROR: 10") {
+		t.Errorf("raw: got %q", atErr.Raw)
 	}
 }
 
@@ -161,7 +177,7 @@ func TestExecute_Timeout(t *testing.T) {
 	_, err := s.Execute("AT", 100*time.Millisecond)
 	elapsed := time.Since(start)
 
-	if err != ErrTimeout {
+	if !errors.Is(err, ErrTimeout) {
 		t.Errorf("expected ErrTimeout, got %v", err)
 	}
 	if elapsed < 90*time.Millisecond || elapsed > 500*time.Millisecond {

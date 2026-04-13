@@ -4,6 +4,7 @@
 package at
 
 import (
+	"errors"
 	"fmt"
 	"strings"
 	"testing"
@@ -299,9 +300,13 @@ func TestExecute_CMEErrors(t *testing.T) {
 			if err == nil {
 				t.Fatal("expected CME error, got nil")
 			}
-			want := fmt.Sprintf("CME ERROR %d", code)
-			if err.Error() != want {
-				t.Errorf("error: got %q, want %q", err.Error(), want)
+			var atErr *ATError
+			if !errors.As(err, &atErr) {
+				t.Fatalf("expected *ATError, got %T: %v", err, err)
+			}
+			wantRaw := fmt.Sprintf("+CME ERROR: %d", code)
+			if atErr.Raw != wantRaw {
+				t.Errorf("raw: got %q, want %q", atErr.Raw, wantRaw)
 			}
 		})
 	}
@@ -323,9 +328,13 @@ func TestExecute_CMSErrors(t *testing.T) {
 			if err == nil {
 				t.Fatal("expected CMS error, got nil")
 			}
-			want := fmt.Sprintf("CMS ERROR %d", code)
-			if err.Error() != want {
-				t.Errorf("error: got %q, want %q", err.Error(), want)
+			var atErr *ATError
+			if !errors.As(err, &atErr) {
+				t.Fatalf("expected *ATError, got %T: %v", err, err)
+			}
+			wantRaw := fmt.Sprintf("+CMS ERROR: %d", code)
+			if atErr.Raw != wantRaw {
+				t.Errorf("raw: got %q, want %q", atErr.Raw, wantRaw)
 			}
 		})
 	}

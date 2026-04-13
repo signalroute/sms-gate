@@ -1,0 +1,39 @@
+linters:
+  enable:
+    - errcheck
+    - staticcheck
+    - govet
+    - gosimple
+    - ineffassign
+    - unused
+    - bodyclose
+    - nilerr
+    - exportloopref
+    - prealloc
+    - unconvert
+    - unparam
+    - misspell
+    - gofmt
+    - goimports
+
+linters-settings:
+  errcheck:
+    check-blank: true
+  staticcheck:
+    checks: ["all"]
+  govet:
+    enable-all: true
+    disable:
+      - fieldalignment # too noisy for the benefit
+  misspell:
+    locale: US
+
+issues:
+  exclude-use-default: false
+  max-issues-per-linter: 0
+  max-same-issues: 0
+  exclude-rules:
+    - path: _test\.go
+      linters:
+        - errcheck
+        - unparam
