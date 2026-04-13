@@ -173,6 +173,7 @@ func (g *Gateway) Run(ctx context.Context) error {
 					KeepaliveInterval:   time.Duration(g.conf.Health.KeepaliveIntervalS) * time.Second,
 					SIMCapacityWarnPct:  g.conf.Health.SIMCapacityWarnPct,
 					SIMCapacityPurgePct: g.conf.Health.SIMCapacityPurgePct,
+					SignalPollInterval:  time.Duration(g.conf.Health.SignalPollIntervalS) * time.Second,
 					Logger:              g.log,
 					Metrics:             g.metrics,
 				})

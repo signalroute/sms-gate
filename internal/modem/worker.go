@@ -121,6 +121,7 @@ type Worker struct {
 	simCapacityWarnPct   int
 	simCapacityPurgePct  int
 	stallDuration        time.Duration // how long without a loop iteration before marking Failed
+	signalPollInterval   time.Duration // how often to poll AT+CSQ
 
 	logger  *slog.Logger
 	metrics *metrics.Gateway
@@ -146,6 +147,9 @@ type WorkerConfig struct {
 	// case handler before the watchdog goroutine declares a stall and
 	// transitions the worker to Failed.  Defaults to 5 minutes when zero.
 	StallDuration time.Duration
+	// SignalPollInterval controls how often AT+CSQ is polled to update the
+	// modem_signal_strength gauge.  Defaults to 30 seconds when zero.
+	SignalPollInterval time.Duration
 	Logger              *slog.Logger
 	Metrics             *metrics.Gateway
 }
@@ -160,6 +164,10 @@ func NewWorker(cfg WorkerConfig) *Worker {
 	if stallDur <= 0 {
 		stallDur = 5 * time.Minute
 	}
+	signalPollInterval := cfg.SignalPollInterval
+	if signalPollInterval <= 0 {
+		signalPollInterval = 30 * time.Second
+	}
 	w := &Worker{
 		port:                cfg.Port,
 		baud:                cfg.Baud,
@@ -172,6 +180,7 @@ func NewWorker(cfg WorkerConfig) *Worker {
 		simCapacityWarnPct:  cfg.SIMCapacityWarnPct,
 		simCapacityPurgePct: cfg.SIMCapacityPurgePct,
 		stallDuration:       stallDur,
+		signalPollInterval:  signalPollInterval,
 		logger:              cfg.Logger,
 		metrics:             cfg.Metrics,
 		inboundCh:           make(chan InboundTask, queueSize),
@@ -238,8 +247,10 @@ func (w *Worker) Run(ctx context.Context, registry *Registry) State {
 
 	keepaliveTicker := time.NewTicker(w.keepaliveInterval)
 	capacityTicker := time.NewTicker(5 * time.Minute)
+	signalTicker := time.NewTicker(w.signalPollInterval)
 	defer keepaliveTicker.Stop()
 	defer capacityTicker.Stop()
+	defer signalTicker.Stop()
 
 	// Seed the stall timer so the watchdog doesn't fire during init time.
 	w.lastLoopNs.Store(time.Now().UnixNano())
@@ -297,6 +308,9 @@ func (w *Worker) Run(ctx context.Context, registry *Registry) State {
 
 		case <-capacityTicker.C:
 			w.checkCapacity(atSer, log)
+
+		case <-signalTicker.C:
+			w.pollSignalStrength(atSer, log)
 		}
 
 		// Stamp last-loop time so the watchdog can detect stalls.
@@ -722,6 +736,20 @@ func (w *Worker) enterBanned(s *at.Serializer, detail string, log *slog.Logger) 
 		AlertCode: tunnel.AlertSIMBanned,
 		Detail:    detail,
 	})
+}
+
+// pollSignalStrength queries AT+CSQ and updates the modem_signal_strength gauge.
+// Errors are logged at debug level and do not affect the worker state machine.
+func (w *Worker) pollSignalStrength(s *at.Serializer, log *slog.Logger) {
+	rssi, err := s.SignalQuality()
+	if err != nil {
+		log.Debug("signal poll failed", "err", err)
+		return
+	}
+	w.signalRSSI.Store(int32(rssi))
+	w.metrics.ModemSignalRSSI.WithLabelValues(w.iccid).Set(float64(rssi))
+	w.metrics.ModemSignalStrength.WithLabelValues(w.iccid).Set(float64(rssi))
+	log.Debug("signal poll", "rssi_dbm", rssi)
 }
 
 func (w *Worker) enterRecovery(s *at.Serializer, reg *Registry, log *slog.Logger) {
