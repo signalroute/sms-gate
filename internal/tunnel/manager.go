@@ -166,6 +166,9 @@ func (m *Manager) Push(evt any) {
 	}
 }
 
+// OutboxLen returns the number of events queued in the outbox channel.
+func (m *Manager) OutboxLen() int { return len(m.outbox) }
+
 // AckDelivered marks a buffer row as delivered when the cloud ACKs it.
 func (m *Manager) AckDelivered(bufferID int64) {
 	m.ackMu.Lock()

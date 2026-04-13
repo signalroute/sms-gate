@@ -43,6 +43,7 @@ func run() error {
 	// ── Flags ──────────────────────────────────────────────────────────────
 	configPath := flag.String("config", "config.yaml", "path to config.yaml")
 	showVersion := flag.Bool("version", false, "print version and exit")
+	dryRun := flag.Bool("dry-run", false, "validate config and exit without connecting (#149)")
 	flag.Parse()
 
 	if *showVersion {
@@ -54,6 +55,12 @@ func run() error {
 	conf, err := config.Load(*configPath)
 	if err != nil {
 		return fmt.Errorf("load config %q: %w", *configPath, err)
+	}
+
+	if *dryRun {
+		fmt.Printf("config OK: gateway_id=%s, modems=%d, tunnel=%s\n",
+			conf.Gateway.ID, len(conf.Modems), conf.Tunnel.URL)
+		return nil
 	}
 
 	// ── Structured logger ──────────────────────────────────────────────────
