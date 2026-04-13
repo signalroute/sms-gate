@@ -119,6 +119,7 @@ type Worker struct {
 
 	// Channels
 	inboundCh chan InboundTask
+	resetCh   chan struct{} // external reset request (#158)
 
 	// Dependencies
 	buf        *buffer.Buffer
@@ -196,6 +197,7 @@ func NewWorker(cfg WorkerConfig) *Worker {
 		logger:              cfg.Logger,
 		metrics:             cfg.Metrics,
 		inboundCh:           make(chan InboundTask, queueSize),
+		resetCh:             make(chan struct{}, 1),
 	}
 	w.state.Store(int32(StateInitializing))
 	return w
@@ -220,6 +222,15 @@ func (w *Worker) Status() WorkerStatus {
 		Sent1H:       w.sent1H.Load(),
 		Recv1H:       w.recv1H.Load(),
 		LastActivity: w.lastActivityNs.Load() / int64(time.Millisecond),
+	}
+}
+
+// RequestReset signals the worker to enter the reset state (#158).
+// Non-blocking: if a reset is already pending, the request is dropped.
+func (w *Worker) RequestReset() {
+	select {
+	case w.resetCh <- struct{}{}:
+	default:
 	}
 }
 
@@ -339,6 +350,10 @@ func (w *Worker) Run(ctx context.Context, registry *Registry) State {
 
 		case <-signalTicker.C:
 			w.pollSignalStrength(atSer, log)
+
+		case <-w.resetCh:
+			log.Warn("reset requested via control API")
+			w.enterReset(atSer, log)
 		}
 
 		// Stamp last-loop time so the watchdog can detect stalls.

@@ -1,0 +1,101 @@
+# SPDX-License-Identifier: MIT
+# Prometheus alerting rules for sms-gate.
+# Import into your Prometheus configuration.
+
+groups:
+  - name: sms-gate
+    rules:
+      # ── Modem connectivity ──────────────────────────────────────────────
+      - alert: NoActiveModems
+        expr: smsgate_active_serial_ports == 0
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "No active serial ports"
+          description: "sms-gate has zero active modem serial ports for the last 2 minutes."
+
+      - alert: ModemInitSlow
+        expr: histogram_quantile(0.95, rate(smsgate_modem_init_duration_seconds_bucket[10m])) > 15
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Modem init p95 > 15s"
+          description: "Modem initialization p95 latency exceeds 15 seconds."
+
+      # ── SMS throughput ──────────────────────────────────────────────────
+      - alert: HighTaskDropRate
+        expr: rate(smsgate_tasks_dropped_total[5m]) > 0.05
+        for: 3m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Tasks being dropped"
+          description: "More than 3 tasks/min dropped over the last 5 minutes. Check modem capacity."
+
+      - alert: OutboxBacklog
+        expr: smsgate_outbox_depth > 500
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Outbox backlog growing"
+          description: "Tunnel outbox has >500 pending messages. Check cloud connectivity."
+
+      - alert: BufferBacklog
+        expr: smsgate_buffer_pending_count > 1000
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Buffer backlog growing"
+          description: "Local SQLite buffer has >1000 pending messages. Possible tunnel outage."
+
+      # ── AT command latency ──────────────────────────────────────────────
+      - alert: ATCommandSlow
+        expr: histogram_quantile(0.95, rate(smsgate_at_command_duration_seconds_bucket[5m])) > 10
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "AT command p95 > 10s"
+          description: "AT command latency p95 exceeds 10 seconds. Modem may be unresponsive."
+
+      - alert: TaskRoundTripSlow
+        expr: histogram_quantile(0.95, rate(smsgate_task_round_trip_seconds_bucket[5m])) > 30
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Task round-trip p95 > 30s"
+          description: "End-to-end task round-trip p95 exceeds 30 seconds."
+
+      # ── Tunnel health ───────────────────────────────────────────────────
+      - alert: TunnelDisconnected
+        expr: smsgate_tunnel_connected == 0
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Tunnel disconnected"
+          description: "WebSocket tunnel has been disconnected for >2 minutes."
+
+      - alert: HighReconnectRate
+        expr: rate(smsgate_tunnel_reconnects_total[10m]) > 0.1
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Frequent tunnel reconnects"
+          description: "Tunnel reconnecting more than once per 10 minutes."
+
+      # ── Registration ────────────────────────────────────────────────────
+      - alert: RegistrationFailures
+        expr: rate(smsgate_registration_failures_total[10m]) > 0
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Modem registration failures"
+          description: "Network registration failures detected in the last 10 minutes."

@@ -1,9 +1,9 @@
-# /etc/systemd/system/go-sms-gate.service
+# /etc/systemd/system/sms-gate.service
 #
 # Install:
-#   sudo cp go-sms-gate.service /etc/systemd/system/
+#   sudo cp sms-gate.service /etc/systemd/system/
 #   sudo systemctl daemon-reload
-#   sudo systemctl enable --now go-sms-gate
+#   sudo systemctl enable --now sms-gate
 
 [Unit]
 Description=Go SMS Gateway — headless cellular modem multiplexer
@@ -20,15 +20,15 @@ StartLimitBurst=5
 Type=simple
 
 # Run as a dedicated dynamic user. SystemD allocates UID/GID automatically
-# and creates /var/lib/go-sms-gate with the correct ownership.
+# and creates /var/lib/sms-gate with the correct ownership.
 DynamicUser=yes
-StateDirectory=go-sms-gate
+StateDirectory=sms-gate
 
 # Load the bearer token from a root-only file — never put secrets in unit files.
-EnvironmentFile=/etc/go-sms-gate/env
+EnvironmentFile=/etc/sms-gate/env
 
-ExecStart=/usr/local/bin/go-sms-gate \
-  --config /etc/go-sms-gate/config.yaml
+ExecStart=/usr/local/bin/sms-gate \
+  --config /etc/sms-gate/config.yaml
 
 Restart=on-failure
 RestartSec=5s
@@ -37,10 +37,10 @@ RestartSec=5s
 TimeoutStopSec=30s
 
 # Structured JSON logs go to journald; query with:
-#   journalctl -u go-sms-gate -f --output=json
+#   journalctl -u sms-gate -f --output=json
 StandardOutput=journal
 StandardError=journal
-SyslogIdentifier=go-sms-gate
+SyslogIdentifier=sms-gate
 
 # ── Security hardening ─────────────────────────────────────────────────────
 # These directives are supported on systemd ≥ 232 (Raspberry Pi OS Bullseye+).

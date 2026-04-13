@@ -1,0 +1,30 @@
+#!/usr/bin/env bash
+# SPDX-License-Identifier: MIT
+# Pre-commit hook for sms-gate.
+# Install: cp scripts/pre-commit .git/hooks/pre-commit && chmod +x .git/hooks/pre-commit
+# Or:      ln -sf ../../scripts/pre-commit .git/hooks/pre-commit
+
+set -euo pipefail
+
+echo "==> Running gofmt..."
+UNFORMATTED=$(gofmt -l . 2>&1 || true)
+if [ -n "$UNFORMATTED" ]; then
+  echo "ERROR: the following files need gofmt:"
+  echo "$UNFORMATTED"
+  exit 1
+fi
+
+echo "==> Running go vet..."
+go vet ./...
+
+echo "==> Running go mod tidy check..."
+cp go.sum go.sum.bak
+go mod tidy
+if ! diff -q go.sum go.sum.bak >/dev/null 2>&1; then
+  echo "ERROR: go.sum changed after 'go mod tidy'. Please commit the updated go.sum."
+  mv go.sum.bak go.sum
+  exit 1
+fi
+rm -f go.sum.bak
+
+echo "Pre-commit checks passed ✓"

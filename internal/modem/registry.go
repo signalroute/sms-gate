@@ -47,6 +47,14 @@ func (r *Registry) Lookup(iccid string) (*Worker, bool) {
 	return w, ok
 }
 
+// Get returns the Worker for the given ICCID, or nil if not found.
+func (r *Registry) Get(iccid string) *Worker {
+	r.mu.RLock()
+	w := r.workers[iccid]
+	r.mu.RUnlock()
+	return w
+}
+
 // Dispatch enqueues a task on the target worker's task channel.
 // Returns ErrModemNotFound if the ICCID is not registered.
 // Returns ErrModemBusy if the task channel is full.
