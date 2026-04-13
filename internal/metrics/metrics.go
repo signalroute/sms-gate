@@ -78,6 +78,11 @@ type Gateway struct {
 	// TaskRoundTripDuration tracks the end-to-end time from task dispatch
 	// to ACK being sent back, in seconds (labels: action).
 	TaskRoundTripDuration *prometheus.HistogramVec
+
+	// WorkerPoolTotal/Active/Banned track the modem worker pool composition (#57).
+	WorkerPoolTotal  prometheus.Gauge
+	WorkerPoolActive prometheus.Gauge
+	WorkerPoolBanned prometheus.Gauge
 }
 
 // New creates and registers all metrics with the given registry.
@@ -211,6 +216,21 @@ func New(reg prometheus.Registerer) *Gateway {
 			Help:    "Duration of the modem initialisation sequence, by iccid.",
 			Buckets: []float64{0.5, 1.0, 2.0, 5.0, 10.0, 30.0, 60.0},
 		}, []string{"iccid"}),
+
+		WorkerPoolTotal: prometheus.NewGauge(prometheus.GaugeOpts{
+			Name: "smsgate_worker_pool_total",
+			Help: "Total configured modem workers.",
+		}),
+
+		WorkerPoolActive: prometheus.NewGauge(prometheus.GaugeOpts{
+			Name: "smsgate_worker_pool_active",
+			Help: "Modem workers currently in ACTIVE or EXECUTING state.",
+		}),
+
+		WorkerPoolBanned: prometheus.NewGauge(prometheus.GaugeOpts{
+			Name: "smsgate_worker_pool_banned",
+			Help: "Modem workers currently in BANNED state.",
+		}),
 	}
 
 	reg.MustRegister(
@@ -239,6 +259,9 @@ func New(reg prometheus.Registerer) *Gateway {
 		g.TaskRoundTripDuration,
 		g.ATCommandDuration,
 		g.ModemInitDuration,
+		g.WorkerPoolTotal,
+		g.WorkerPoolActive,
+		g.WorkerPoolBanned,
 	)
 	return g
 }

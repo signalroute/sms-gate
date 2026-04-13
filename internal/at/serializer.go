@@ -563,6 +563,10 @@ func ParseCMTI(urc string) (int, error) {
 	if err != nil {
 		return 0, fmt.Errorf("parse CMTI index: %w", err)
 	}
+	// SIM storage indices are non-negative and typically 0–999.
+	if idx < 0 || idx > 999 {
+		return 0, fmt.Errorf("CMTI index %d out of range [0,999]: %w", idx, ErrMalformedResponse)
+	}
 	return idx, nil
 }
 

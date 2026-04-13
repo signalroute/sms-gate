@@ -169,6 +169,12 @@ func (g *Gateway) Run(ctx context.Context) error {
 					g.metrics.BufferPendingCount.Set(float64(pc))
 				}
 				g.metrics.OutboxDepth.Set(float64(g.mgr.OutboxLen()))
+
+				// Worker pool composition (#57)
+				total, active, banned := g.reg.PoolCounts()
+				g.metrics.WorkerPoolTotal.Set(float64(total))
+				g.metrics.WorkerPoolActive.Set(float64(active))
+				g.metrics.WorkerPoolBanned.Set(float64(banned))
 			}
 		}
 	})
