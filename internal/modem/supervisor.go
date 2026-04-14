@@ -17,7 +17,7 @@ import (
 type WorkerFactory func() *Worker
 
 // RunSupervised starts the Worker returned by factory and restarts it on
-// failure using exponential back-off. It stops when ctx is cancelled.
+// failure using exponential back-off. It stops when ctx is canceled.
 //
 // Each reconnect attempt is logged with the attempt number and the computed
 // delay. The smsgate_modem_reconnect_total counter is incremented on every
@@ -47,7 +47,7 @@ func RunSupervised(ctx context.Context, factory WorkerFactory, reg *Registry, me
 
 		// If context is done, exit cleanly regardless of final state.
 		if ctx.Err() != nil {
-			log.Info("context cancelled, supervisor exiting", "final_state", finalState)
+			log.Info("context canceled, supervisor exiting", "final_state", finalState)
 			return
 		}
 

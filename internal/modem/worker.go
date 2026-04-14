@@ -65,8 +65,8 @@ func (s State) String() string {
 
 // InboundTask is dispatched from the Task Router to a specific Worker.
 type InboundTask struct {
-	Task   tunnel.Task
-	AckFn  func(ack tunnel.TaskAckEvent) // called to push TASK_ACK upstream
+	Task    tunnel.Task
+	AckFn   func(ack tunnel.TaskAckEvent) // called to push TASK_ACK upstream
 	AlertFn func(alert tunnel.ModemAlertEvent)
 }
 
@@ -100,9 +100,9 @@ type Worker struct {
 	// is registered in the Registry.  Registry.Register/Lookup use a mutex that
 	// establishes the happens-before relationship between the write (init
 	// goroutine) and any subsequent read (tunnel/heartbeat goroutine).
-	iccid      string
-	imsi       string
-	operator   string
+	iccid    string
+	imsi     string
+	operator string
 
 	// Concurrently updated.
 	state      atomic.Int32
@@ -124,18 +124,18 @@ type Worker struct {
 	resetCh   chan struct{} // external reset request (#158)
 
 	// Dependencies
-	buf        *buffer.Buffer
-	limiter    *RateLimiterRegistry
-	eventFn    func(evt any) // push event upstream (SMSReceived, ModemAlert, TaskAck)
-	rateCfg    RateLimitConfig
+	buf     *buffer.Buffer
+	limiter *RateLimiterRegistry
+	eventFn func(evt any) // push event upstream (SMSReceived, ModemAlert, TaskAck)
+	rateCfg RateLimitConfig
 
 	// Health config
-	keepaliveInterval    time.Duration
-	simCapacityWarnPct   int
-	simCapacityPurgePct  int
-	stallDuration        time.Duration // how long without a loop iteration before marking Failed
-	signalPollInterval   time.Duration // how often to poll AT+CSQ
-	portOpenRetries      int
+	keepaliveInterval   time.Duration
+	simCapacityWarnPct  int
+	simCapacityPurgePct int
+	stallDuration       time.Duration // how long without a loop iteration before marking Failed
+	signalPollInterval  time.Duration // how often to poll AT+CSQ
+	portOpenRetries     int
 
 	logger  *slog.Logger
 	metrics *metrics.Gateway
@@ -168,8 +168,8 @@ type WorkerConfig struct {
 	// PortOpenRetries is the number of serial port open attempts.
 	// Defaults to 3 when zero.  Increase for USB hubs with slow enumeration (#39).
 	PortOpenRetries int
-	Logger              *slog.Logger
-	Metrics             *metrics.Gateway
+	Logger          *slog.Logger
+	Metrics         *metrics.Gateway
 }
 
 // NewWorker constructs but does not start a Worker.
@@ -245,7 +245,7 @@ func (w *Worker) RequestReset() {
 	}
 }
 
-// Run starts the worker goroutine and blocks until ctx is cancelled or a fatal
+// Run starts the worker goroutine and blocks until ctx is canceled or a fatal
 // error occurs. Returns the final state.
 func (w *Worker) Run(ctx context.Context, registry *Registry) State {
 	log := w.logger.With("port", w.port, "component", "worker")
@@ -258,12 +258,12 @@ func (w *Worker) Run(ctx context.Context, registry *Registry) State {
 		w.state.Store(int32(StateFailed))
 		return StateFailed
 	}
-	defer ser.Close()
+	defer func() { _ = ser.Close() }()
 	w.metrics.ActiveSerialPorts.Inc()
 	defer w.metrics.ActiveSerialPorts.Dec()
 
 	atSer := at.NewSerializer(ser, log)
-	defer atSer.Close()
+	defer func() { _ = atSer.Close() }()
 
 	// Wire AT command latency into the smsgate_at_command_duration_seconds histogram.
 	if w.metrics != nil {
@@ -418,14 +418,14 @@ type tcpPort struct {
 	net.Conn
 }
 
-func (p *tcpPort) SetMode(mode *serial.Mode) error { return nil }
-func (p *tcpPort) Drain() error                   { return nil }
-func (p *tcpPort) Break(time.Duration) error      { return nil }
-func (p *tcpPort) SetDTR(bool) error              { return nil }
-func (p *tcpPort) SetRTS(bool) error              { return nil }
+func (p *tcpPort) SetMode(mode *serial.Mode) error    { return nil }
+func (p *tcpPort) Drain() error                       { return nil }
+func (p *tcpPort) Break(time.Duration) error          { return nil }
+func (p *tcpPort) SetDTR(bool) error                  { return nil }
+func (p *tcpPort) SetRTS(bool) error                  { return nil }
 func (p *tcpPort) SetReadTimeout(time.Duration) error { return nil }
-func (p *tcpPort) ResetInputBuffer() error         { return nil }
-func (p *tcpPort) ResetOutputBuffer() error        { return nil }
+func (p *tcpPort) ResetInputBuffer() error            { return nil }
+func (p *tcpPort) ResetOutputBuffer() error           { return nil }
 func (p *tcpPort) GetModemStatusBits() (*serial.ModemStatusBits, error) {
 	return &serial.ModemStatusBits{}, nil
 }
@@ -543,7 +543,7 @@ func (w *Worker) handleURC(ctx context.Context, s *at.Serializer, urc string, lo
 }
 
 // receiveSMS implements the safe-deletion ordering from §2.3.1 and §5.2.1.
-func (w *Worker) receiveSMS(ctx context.Context, s *at.Serializer, index int, log *slog.Logger) {
+func (w *Worker) receiveSMS(_ context.Context, s *at.Serializer, index int, log *slog.Logger) {
 	log = log.With("sms_index", index)
 
 	// Step 1: Read PDU from SIM.
@@ -558,7 +558,9 @@ func (w *Worker) receiveSMS(ctx context.Context, s *at.Serializer, index int, lo
 	if err != nil {
 		log.Error("failed to decode PDU", "err", err)
 		// Still delete from SIM to avoid storage leak.
-		_ = s.DeleteSMS(index)
+		if delErr := s.DeleteSMS(index); delErr != nil {
+			log.Warn("failed to delete malformed SMS from SIM", "err", delErr)
+		}
 		return
 	}
 
@@ -598,7 +600,7 @@ func (w *Worker) receiveSMS(ctx context.Context, s *at.Serializer, index int, lo
 
 	// Step 5: Push event upstream via eventFn.
 	w.eventFn(tunnel.SMSReceivedEvent{
-		Envelope: tunnel.NewEnvelope(tunnel.TypeSMSReceived),
+		Envelope:   tunnel.NewEnvelope(tunnel.TypeSMSReceived),
 		GatewayID:  w.gatewayID,
 		ICCID:      w.iccid,
 		Sender:     decoded.Sender,
@@ -612,7 +614,7 @@ func (w *Worker) receiveSMS(ctx context.Context, s *at.Serializer, index int, lo
 
 // ── Task execution ────────────────────────────────────────────────────────
 
-func (w *Worker) executeTask(ctx context.Context, s *at.Serializer, it InboundTask, reg *Registry, log *slog.Logger) {
+func (w *Worker) executeTask(ctx context.Context, s *at.Serializer, it InboundTask, _ *Registry, log *slog.Logger) {
 	task := it.Task
 	log = log.With("task_id", task.MessageID, "action", task.Action)
 	log.Info("executing task")
@@ -696,11 +698,10 @@ func (w *Worker) doSendSMS(s *at.Serializer, task tunnel.Task, log *slog.Logger)
 	}
 
 	for i, part := range parts {
-		_, err := s.ExecuteSend(part.HexStr, part.Length, at.TimeoutSend)
-		if err != nil {
+		if _, sendErr := s.ExecuteSend(part.HexStr, part.Length, at.TimeoutSend); sendErr != nil {
 			return nil, &tunnel.TaskError{
 				Code:    tunnel.ErrCodeSendFailed,
-				Message: fmt.Sprintf("part %d/%d: %v", i+1, len(parts), err),
+				Message: fmt.Sprintf("part %d/%d: %v", i+1, len(parts), sendErr),
 			}
 		}
 	}
@@ -714,11 +715,14 @@ func (w *Worker) doSendSMS(s *at.Serializer, task tunnel.Task, log *slog.Logger)
 		SignalCSQ: int(w.signalRSSI.Load()),
 		RegStatus: tunnel.RegStatusString(int(w.regStat.Load())),
 	}
-	resJSON, _ := json.Marshal(result)
+	resJSON, err := json.Marshal(result)
+	if err != nil {
+		return nil, &tunnel.TaskError{Code: tunnel.ErrCodeSendFailed, Message: fmt.Sprintf("marshal send result: %v", err)}
+	}
 	return resJSON, nil
 }
 
-func (w *Worker) doRebootModem(ctx context.Context, s *at.Serializer, task tunnel.Task, log *slog.Logger) *tunnel.TaskError {
+func (w *Worker) doRebootModem(_ context.Context, s *at.Serializer, task tunnel.Task, log *slog.Logger) *tunnel.TaskError {
 	var p tunnel.RebootModemPayload
 	if err := json.Unmarshal(task.Payload, &p); err != nil {
 		return &tunnel.TaskError{Code: tunnel.ErrCodeInvalidPayload, Message: err.Error()}
@@ -731,7 +735,9 @@ func (w *Worker) doRebootModem(ctx context.Context, s *at.Serializer, task tunne
 		}
 	} else {
 		log.Info("radio cycle requested")
-		_ = s.RadioOff()
+		if err := s.RadioOff(); err != nil {
+			return &tunnel.TaskError{Code: tunnel.ErrCodeModemUnresponsive, Message: err.Error()}
+		}
 		time.Sleep(2 * time.Second)
 		if err := s.RadioOn(); err != nil {
 			return &tunnel.TaskError{Code: tunnel.ErrCodeModemUnresponsive, Message: err.Error()}
@@ -754,7 +760,10 @@ func (w *Worker) doCheckSignal(s *at.Serializer, log *slog.Logger) ([]byte, *tun
 	w.metrics.ModemSignalRSSI.WithLabelValues(w.iccid).Set(float64(rssi))
 
 	res := tunnel.CheckSignalResult{RSSI: rssi, RegStatus: tunnel.RegStatusString(stat)}
-	b, _ := json.Marshal(res)
+	b, err := json.Marshal(res)
+	if err != nil {
+		return nil, &tunnel.TaskError{Code: tunnel.ErrCodeSendFailed, Message: fmt.Sprintf("marshal signal result: %v", err)}
+	}
 	log.Info("signal check", "rssi", rssi, "reg_status", tunnel.RegStatusString(stat))
 	return b, nil
 }
@@ -806,7 +815,9 @@ func (w *Worker) checkCapacity(s *at.Serializer, log *slog.Logger) {
 			AlertCode: tunnel.AlertSIMFull,
 			Detail:    fmt.Sprintf("SIM at %d%% capacity (%d/%d), purging", pct, used, total),
 		})
-		_ = s.DeleteAllSMS()
+		if err := s.DeleteAllSMS(); err != nil {
+			log.Warn("SIM purge failed", "err", err)
+		}
 	} else if pct >= w.simCapacityWarnPct {
 		log.Warn("SIM storage warning", "used", used, "total", total, "pct", pct)
 		w.eventFn(tunnel.ModemAlertEvent{
@@ -820,7 +831,7 @@ func (w *Worker) checkCapacity(s *at.Serializer, log *slog.Logger) {
 
 // ── State transitions ─────────────────────────────────────────────────────
 
-func (w *Worker) enterBanned(s *at.Serializer, detail string, log *slog.Logger) {
+func (w *Worker) enterBanned(_ *at.Serializer, detail string, log *slog.Logger) {
 	log.Error("SIM BANNED", "detail", detail)
 	w.state.Store(int32(StateBanned))
 	w.metrics.ModemState.WithLabelValues(w.iccid).Set(float64(StateBanned))
@@ -846,7 +857,7 @@ func (w *Worker) pollSignalStrength(s *at.Serializer, log *slog.Logger) {
 	log.Debug("signal poll", "rssi_dbm", rssi)
 }
 
-func (w *Worker) enterRecovery(s *at.Serializer, reg *Registry, log *slog.Logger) {
+func (w *Worker) enterRecovery(s *at.Serializer, _ *Registry, log *slog.Logger) {
 	log.Warn("entering recovery: radio cycle")
 	w.state.Store(int32(StateRecovering))
 	w.metrics.ModemState.WithLabelValues(w.iccid).Set(float64(StateRecovering))

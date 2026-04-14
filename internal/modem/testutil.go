@@ -3,7 +3,7 @@
 
 package modem
 
-// NewWorkerForTest creates a Worker with only its inboundCh initialised.
+// NewWorkerForTest creates a Worker with only its inboundCh initialized.
 // The worker is NOT started — it has no serial port or AT serializer.
 // Use it to populate a Registry for unit-testing the Task Router.
 func NewWorkerForTest(iccid string) *Worker {

@@ -464,369 +464,369 @@ func TestExecute_MultiLine(t *testing.T) {
 // ExecuteSend from 0% to full statement coverage.
 
 func TestPing_OK(t *testing.T) {
-s, port := newTestSerializer(t)
-go func() { time.Sleep(5 * time.Millisecond); port.feed("OK") }()
-if err := s.Ping(); err != nil {
-t.Fatalf("Ping() error: %v", err)
-}
+	s, port := newTestSerializer(t)
+	go func() { time.Sleep(5 * time.Millisecond); port.feed("OK") }()
+	if err := s.Ping(); err != nil {
+		t.Fatalf("Ping() error: %v", err)
+	}
 }
 
 func TestPing_Error(t *testing.T) {
-s, port := newTestSerializer(t)
-go func() { time.Sleep(5 * time.Millisecond); port.feed("ERROR") }()
-if err := s.Ping(); err == nil {
-t.Fatal("Ping() expected error on ERROR response")
-}
+	s, port := newTestSerializer(t)
+	go func() { time.Sleep(5 * time.Millisecond); port.feed("ERROR") }()
+	if err := s.Ping(); err == nil {
+		t.Fatal("Ping() expected error on ERROR response")
+	}
 }
 
 func TestDisableEcho_OK(t *testing.T) {
-s, port := newTestSerializer(t)
-go func() { time.Sleep(5 * time.Millisecond); port.feed("OK") }()
-if err := s.DisableEcho(); err != nil {
-t.Fatalf("DisableEcho() error: %v", err)
-}
+	s, port := newTestSerializer(t)
+	go func() { time.Sleep(5 * time.Millisecond); port.feed("OK") }()
+	if err := s.DisableEcho(); err != nil {
+		t.Fatalf("DisableEcho() error: %v", err)
+	}
 }
 
 func TestSetPDUMode_OK(t *testing.T) {
-s, port := newTestSerializer(t)
-go func() { time.Sleep(5 * time.Millisecond); port.feed("OK") }()
-if err := s.SetPDUMode(); err != nil {
-t.Fatalf("SetPDUMode() error: %v", err)
-}
+	s, port := newTestSerializer(t)
+	go func() { time.Sleep(5 * time.Millisecond); port.feed("OK") }()
+	if err := s.SetPDUMode(); err != nil {
+		t.Fatalf("SetPDUMode() error: %v", err)
+	}
 }
 
 func TestEnableCMTIURCs_OK(t *testing.T) {
-s, port := newTestSerializer(t)
-go func() { time.Sleep(5 * time.Millisecond); port.feed("OK") }()
-if err := s.EnableCMTIURCs(); err != nil {
-t.Fatalf("EnableCMTIURCs() error: %v", err)
-}
+	s, port := newTestSerializer(t)
+	go func() { time.Sleep(5 * time.Millisecond); port.feed("OK") }()
+	if err := s.EnableCMTIURCs(); err != nil {
+		t.Fatalf("EnableCMTIURCs() error: %v", err)
+	}
 }
 
 func TestRadioOff_OK(t *testing.T) {
-s, port := newTestSerializer(t)
-go func() { time.Sleep(5 * time.Millisecond); port.feed("OK") }()
-if err := s.RadioOff(); err != nil {
-t.Fatalf("RadioOff() error: %v", err)
-}
+	s, port := newTestSerializer(t)
+	go func() { time.Sleep(5 * time.Millisecond); port.feed("OK") }()
+	if err := s.RadioOff(); err != nil {
+		t.Fatalf("RadioOff() error: %v", err)
+	}
 }
 
 func TestRadioOn_OK(t *testing.T) {
-s, port := newTestSerializer(t)
-go func() { time.Sleep(5 * time.Millisecond); port.feed("OK") }()
-if err := s.RadioOn(); err != nil {
-t.Fatalf("RadioOn() error: %v", err)
-}
+	s, port := newTestSerializer(t)
+	go func() { time.Sleep(5 * time.Millisecond); port.feed("OK") }()
+	if err := s.RadioOn(); err != nil {
+		t.Fatalf("RadioOn() error: %v", err)
+	}
 }
 
 func TestHardReset_OK(t *testing.T) {
-s, port := newTestSerializer(t)
-go func() { time.Sleep(5 * time.Millisecond); port.feed("OK") }()
-if err := s.HardReset(); err != nil {
-t.Fatalf("HardReset() error: %v", err)
-}
+	s, port := newTestSerializer(t)
+	go func() { time.Sleep(5 * time.Millisecond); port.feed("OK") }()
+	if err := s.HardReset(); err != nil {
+		t.Fatalf("HardReset() error: %v", err)
+	}
 }
 
 func TestDeleteAllSMS_OK(t *testing.T) {
-s, port := newTestSerializer(t)
-go func() { time.Sleep(5 * time.Millisecond); port.feed("OK") }()
-if err := s.DeleteAllSMS(); err != nil {
-t.Fatalf("DeleteAllSMS() error: %v", err)
-}
+	s, port := newTestSerializer(t)
+	go func() { time.Sleep(5 * time.Millisecond); port.feed("OK") }()
+	if err := s.DeleteAllSMS(); err != nil {
+		t.Fatalf("DeleteAllSMS() error: %v", err)
+	}
 }
 
 // TestDeleteSMS_Indices covers DeleteSMS for indices 1-50.
 func TestDeleteSMS_Indices(t *testing.T) {
-for idx := 1; idx <= 50; idx++ {
-idx := idx
-t.Run(fmt.Sprintf("idx_%d", idx), func(t *testing.T) {
-s, port := newTestSerializer(t)
-go func() { time.Sleep(5 * time.Millisecond); port.feed("OK") }()
-if err := s.DeleteSMS(idx); err != nil {
-t.Fatalf("DeleteSMS(%d) error: %v", idx, err)
-}
-})
-}
+	for idx := 1; idx <= 50; idx++ {
+		idx := idx
+		t.Run(fmt.Sprintf("idx_%d", idx), func(t *testing.T) {
+			s, port := newTestSerializer(t)
+			go func() { time.Sleep(5 * time.Millisecond); port.feed("OK") }()
+			if err := s.DeleteSMS(idx); err != nil {
+				t.Fatalf("DeleteSMS(%d) error: %v", idx, err)
+			}
+		})
+	}
 }
 
 // TestReadSMS_OK verifies ReadSMS extracts the PDU hex line correctly.
 func TestReadSMS_OK(t *testing.T) {
-pduHex := "0791448720003023440DD0E5391D9C2EBBCF20"
-s, port := newTestSerializer(t)
-go func() {
-time.Sleep(5 * time.Millisecond)
-port.feed("+CMGR: 0,,20", pduHex, "OK")
-}()
-got, err := s.ReadSMS(1)
-if err != nil {
-t.Fatalf("ReadSMS(1) error: %v", err)
-}
-if got != pduHex {
-t.Errorf("ReadSMS: got %q, want %q", got, pduHex)
-}
+	pduHex := "0791448720003023440DD0E5391D9C2EBBCF20"
+	s, port := newTestSerializer(t)
+	go func() {
+		time.Sleep(5 * time.Millisecond)
+		port.feed("+CMGR: 0,,20", pduHex, "OK")
+	}()
+	got, err := s.ReadSMS(1)
+	if err != nil {
+		t.Fatalf("ReadSMS(1) error: %v", err)
+	}
+	if got != pduHex {
+		t.Errorf("ReadSMS: got %q, want %q", got, pduHex)
+	}
 }
 
 // TestReadSMS_NoPDU verifies ReadSMS returns error when no PDU line follows.
 func TestReadSMS_NoPDU(t *testing.T) {
-s, port := newTestSerializer(t)
-go func() {
-time.Sleep(5 * time.Millisecond)
-port.feed("OK") // no +CMGR header
-}()
-_, err := s.ReadSMS(1)
-if err == nil {
-t.Fatal("ReadSMS expected error when no PDU in response")
-}
+	s, port := newTestSerializer(t)
+	go func() {
+		time.Sleep(5 * time.Millisecond)
+		port.feed("OK") // no +CMGR header
+	}()
+	_, err := s.ReadSMS(1)
+	if err == nil {
+		t.Fatal("ReadSMS expected error when no PDU in response")
+	}
 }
 
 // TestReadSMS_Indices exercises ReadSMS for indices 1-20.
 func TestReadSMS_Indices(t *testing.T) {
-for idx := 1; idx <= 20; idx++ {
-idx := idx
-t.Run(fmt.Sprintf("idx_%d", idx), func(t *testing.T) {
-pdu := fmt.Sprintf("AABBCC%04X", idx)
-s, port := newTestSerializer(t)
-go func() {
-time.Sleep(5 * time.Millisecond)
-port.feed(fmt.Sprintf("+CMGR: 0,,%d", idx), pdu, "OK")
-}()
-got, err := s.ReadSMS(idx)
-if err != nil {
-t.Fatalf("ReadSMS(%d) error: %v", idx, err)
-}
-if got != pdu {
-t.Errorf("idx %d: got %q, want %q", idx, got, pdu)
-}
-})
-}
+	for idx := 1; idx <= 20; idx++ {
+		idx := idx
+		t.Run(fmt.Sprintf("idx_%d", idx), func(t *testing.T) {
+			pdu := fmt.Sprintf("AABBCC%04X", idx)
+			s, port := newTestSerializer(t)
+			go func() {
+				time.Sleep(5 * time.Millisecond)
+				port.feed(fmt.Sprintf("+CMGR: 0,,%d", idx), pdu, "OK")
+			}()
+			got, err := s.ReadSMS(idx)
+			if err != nil {
+				t.Fatalf("ReadSMS(%d) error: %v", idx, err)
+			}
+			if got != pdu {
+				t.Errorf("idx %d: got %q, want %q", idx, got, pdu)
+			}
+		})
+	}
 }
 
 // ── ExecuteSend coverage ──────────────────────────────────────────────────
 
 // TestExecuteSend_OK exercises the happy-path two-phase SMS send.
 func TestExecuteSend_OK(t *testing.T) {
-s, port := newTestSerializer(t)
-go func() {
-time.Sleep(10 * time.Millisecond)
-port.feed(">")               // prompt
-time.Sleep(5 * time.Millisecond)
-port.feed("+CMGS: 7", "OK") // MR=7
-}()
-mr, err := s.ExecuteSend("DEADBEEF", 3, 5*time.Second)
-if err != nil {
-t.Fatalf("ExecuteSend error: %v", err)
-}
-if mr != 7 {
-t.Errorf("ExecuteSend MR: got %d, want 7", mr)
-}
+	s, port := newTestSerializer(t)
+	go func() {
+		time.Sleep(10 * time.Millisecond)
+		port.feed(">") // prompt
+		time.Sleep(5 * time.Millisecond)
+		port.feed("+CMGS: 7", "OK") // MR=7
+	}()
+	mr, err := s.ExecuteSend("DEADBEEF", 3, 5*time.Second)
+	if err != nil {
+		t.Fatalf("ExecuteSend error: %v", err)
+	}
+	if mr != 7 {
+		t.Errorf("ExecuteSend MR: got %d, want 7", mr)
+	}
 }
 
 // TestExecuteSend_CMSError verifies CMS ERROR after PDU is surfaced.
 func TestExecuteSend_CMSError(t *testing.T) {
-s, port := newTestSerializer(t)
-go func() {
-time.Sleep(10 * time.Millisecond)
-port.feed(">")
-time.Sleep(5 * time.Millisecond)
-port.feed("+CMS ERROR: 38") // network timeout
-}()
-_, err := s.ExecuteSend("DEADBEEF", 3, 5*time.Second)
-if err == nil {
-t.Fatal("ExecuteSend expected error on CMS ERROR")
-}
-if !strings.Contains(err.Error(), "CMS ERROR") {
-t.Errorf("unexpected error: %v", err)
-}
+	s, port := newTestSerializer(t)
+	go func() {
+		time.Sleep(10 * time.Millisecond)
+		port.feed(">")
+		time.Sleep(5 * time.Millisecond)
+		port.feed("+CMS ERROR: 38") // network timeout
+	}()
+	_, err := s.ExecuteSend("DEADBEEF", 3, 5*time.Second)
+	if err == nil {
+		t.Fatal("ExecuteSend expected error on CMS ERROR")
+	}
+	if !strings.Contains(err.Error(), "CMS ERROR") {
+		t.Errorf("unexpected error: %v", err)
+	}
 }
 
 // TestExecuteSend_CMEError verifies CME ERROR after PDU is surfaced.
 func TestExecuteSend_CMEError(t *testing.T) {
-s, port := newTestSerializer(t)
-go func() {
-time.Sleep(10 * time.Millisecond)
-port.feed(">")
-time.Sleep(5 * time.Millisecond)
-port.feed("+CME ERROR: 3") // operation not allowed
-}()
-_, err := s.ExecuteSend("DEADBEEF", 3, 5*time.Second)
-if err == nil {
-t.Fatal("ExecuteSend expected error on CME ERROR")
-}
+	s, port := newTestSerializer(t)
+	go func() {
+		time.Sleep(10 * time.Millisecond)
+		port.feed(">")
+		time.Sleep(5 * time.Millisecond)
+		port.feed("+CME ERROR: 3") // operation not allowed
+	}()
+	_, err := s.ExecuteSend("DEADBEEF", 3, 5*time.Second)
+	if err == nil {
+		t.Fatal("ExecuteSend expected error on CME ERROR")
+	}
 }
 
 // TestExecuteSend_ATError verifies plain ERROR after PDU.
 func TestExecuteSend_ATError(t *testing.T) {
-s, port := newTestSerializer(t)
-go func() {
-time.Sleep(10 * time.Millisecond)
-port.feed(">")
-time.Sleep(5 * time.Millisecond)
-port.feed("ERROR")
-}()
-_, err := s.ExecuteSend("DEADBEEF", 3, 5*time.Second)
-if err == nil {
-t.Fatal("ExecuteSend expected error on ERROR response")
-}
+	s, port := newTestSerializer(t)
+	go func() {
+		time.Sleep(10 * time.Millisecond)
+		port.feed(">")
+		time.Sleep(5 * time.Millisecond)
+		port.feed("ERROR")
+	}()
+	_, err := s.ExecuteSend("DEADBEEF", 3, 5*time.Second)
+	if err == nil {
+		t.Fatal("ExecuteSend expected error on ERROR response")
+	}
 }
 
 // TestExecuteSend_PromptRejected verifies ERROR before the prompt is handled.
 func TestExecuteSend_PromptRejected(t *testing.T) {
-s, port := newTestSerializer(t)
-go func() {
-time.Sleep(10 * time.Millisecond)
-port.feed("ERROR") // modem rejects before sending prompt
-}()
-_, err := s.ExecuteSend("DEADBEEF", 3, 5*time.Second)
-if err == nil {
-t.Fatal("ExecuteSend expected error when modem rejects before prompt")
-}
+	s, port := newTestSerializer(t)
+	go func() {
+		time.Sleep(10 * time.Millisecond)
+		port.feed("ERROR") // modem rejects before sending prompt
+	}()
+	_, err := s.ExecuteSend("DEADBEEF", 3, 5*time.Second)
+	if err == nil {
+		t.Fatal("ExecuteSend expected error when modem rejects before prompt")
+	}
 }
 
 // TestExecuteSend_ClosedSerializer ensures ErrClosed is returned immediately.
 func TestExecuteSend_ClosedSerializer(t *testing.T) {
-s, port := newTestSerializer(t)
-port.Close()
-s.Close()
-time.Sleep(10 * time.Millisecond) // let reader goroutine notice close
-_, err := s.ExecuteSend("DEADBEEF", 3, 5*time.Second)
-if err == nil {
-t.Fatal("ExecuteSend expected ErrClosed on a closed serializer")
-}
+	s, port := newTestSerializer(t)
+	port.Close()
+	s.Close()
+	time.Sleep(10 * time.Millisecond) // let reader goroutine notice close
+	_, err := s.ExecuteSend("DEADBEEF", 3, 5*time.Second)
+	if err == nil {
+		t.Fatal("ExecuteSend expected ErrClosed on a closed serializer")
+	}
 }
 
 // TestExecuteSend_ManyMR exercises MR values 0-29.
 func TestExecuteSend_ManyMR(t *testing.T) {
-for mr := 0; mr < 30; mr++ {
-mr := mr
-t.Run(fmt.Sprintf("mr_%d", mr), func(t *testing.T) {
-s, port := newTestSerializer(t)
-go func() {
-time.Sleep(10 * time.Millisecond)
-port.feed(">")
-time.Sleep(5 * time.Millisecond)
-port.feed(fmt.Sprintf("+CMGS: %d", mr), "OK")
-}()
-got, err := s.ExecuteSend("DEADBEEF", 3, 5*time.Second)
-if err != nil {
-t.Fatalf("mr=%d error: %v", mr, err)
-}
-if got != mr {
-t.Errorf("mr=%d: got %d", mr, got)
-}
-})
-}
+	for mr := 0; mr < 30; mr++ {
+		mr := mr
+		t.Run(fmt.Sprintf("mr_%d", mr), func(t *testing.T) {
+			s, port := newTestSerializer(t)
+			go func() {
+				time.Sleep(10 * time.Millisecond)
+				port.feed(">")
+				time.Sleep(5 * time.Millisecond)
+				port.feed(fmt.Sprintf("+CMGS: %d", mr), "OK")
+			}()
+			got, err := s.ExecuteSend("DEADBEEF", 3, 5*time.Second)
+			if err != nil {
+				t.Fatalf("mr=%d error: %v", mr, err)
+			}
+			if got != mr {
+				t.Errorf("mr=%d: got %d", mr, got)
+			}
+		})
+	}
 }
 
 // ── dcsEncoding coverage ──────────────────────────────────────────────────
 
 func TestDCSEncoding_AllGroups(t *testing.T) {
-cases := []struct {
-dcs  byte
-want string
-}{
-// Group 0x00: general — enc bits 01=00 → GSM7
-{0x00, "GSM7"}, {0x01, "GSM7"}, {0x02, "GSM7"}, {0x03, "GSM7"},
-// Group 0x00: enc 01 → 8BIT
-{0x04, "8BIT"}, {0x05, "8BIT"}, {0x06, "8BIT"}, {0x07, "8BIT"},
-// Group 0x00: enc 10 → UCS2
-{0x08, "UCS2"}, {0x09, "UCS2"}, {0x0A, "UCS2"}, {0x0B, "UCS2"},
-// Group 0x00: enc 11 → GSM7 (reserved)
-{0x0C, "GSM7"}, {0x0D, "GSM7"}, {0x0E, "GSM7"}, {0x0F, "GSM7"},
-// Group 0x0F: message class, enc bits same mapping
-{0xF0, "GSM7"}, {0xF4, "8BIT"}, {0xF8, "UCS2"},
-// Group 0x04-0x07: MWI → GSM7
-{0x40, "GSM7"}, {0x50, "GSM7"}, {0x60, "GSM7"}, {0x70, "GSM7"},
-// Group 0x08-0x0B: MWI UCS2
-{0x80, "UCS2"}, {0x90, "UCS2"}, {0xA0, "UCS2"}, {0xB0, "UCS2"},
-// Group 0x0C-0x0D: GSM7
-{0xC0, "GSM7"}, {0xD0, "GSM7"},
-// Group 0x0E: bit 2 set → UCS2, else GSM7
-{0xE4, "UCS2"}, {0xE0, "GSM7"},
-}
-for _, tc := range cases {
-tc := tc
-t.Run(fmt.Sprintf("dcs_0x%02X", tc.dcs), func(t *testing.T) {
-got := dcsEncoding(tc.dcs)
-if got != tc.want {
-t.Errorf("dcsEncoding(0x%02X) = %q, want %q", tc.dcs, got, tc.want)
-}
-})
-}
+	cases := []struct {
+		dcs  byte
+		want string
+	}{
+		// Group 0x00: general — enc bits 01=00 → GSM7
+		{0x00, "GSM7"}, {0x01, "GSM7"}, {0x02, "GSM7"}, {0x03, "GSM7"},
+		// Group 0x00: enc 01 → 8BIT
+		{0x04, "8BIT"}, {0x05, "8BIT"}, {0x06, "8BIT"}, {0x07, "8BIT"},
+		// Group 0x00: enc 10 → UCS2
+		{0x08, "UCS2"}, {0x09, "UCS2"}, {0x0A, "UCS2"}, {0x0B, "UCS2"},
+		// Group 0x00: enc 11 → GSM7 (reserved)
+		{0x0C, "GSM7"}, {0x0D, "GSM7"}, {0x0E, "GSM7"}, {0x0F, "GSM7"},
+		// Group 0x0F: message class, enc bits same mapping
+		{0xF0, "GSM7"}, {0xF4, "8BIT"}, {0xF8, "UCS2"},
+		// Group 0x04-0x07: MWI → GSM7
+		{0x40, "GSM7"}, {0x50, "GSM7"}, {0x60, "GSM7"}, {0x70, "GSM7"},
+		// Group 0x08-0x0B: MWI UCS2
+		{0x80, "UCS2"}, {0x90, "UCS2"}, {0xA0, "UCS2"}, {0xB0, "UCS2"},
+		// Group 0x0C-0x0D: GSM7
+		{0xC0, "GSM7"}, {0xD0, "GSM7"},
+		// Group 0x0E: bit 2 set → UCS2, else GSM7
+		{0xE4, "UCS2"}, {0xE0, "GSM7"},
+	}
+	for _, tc := range cases {
+		tc := tc
+		t.Run(fmt.Sprintf("dcs_0x%02X", tc.dcs), func(t *testing.T) {
+			got := dcsEncoding(tc.dcs)
+			if got != tc.want {
+				t.Errorf("dcsEncoding(0x%02X) = %q, want %q", tc.dcs, got, tc.want)
+			}
+		})
+	}
 }
 
 // ── decodeSMSC coverage ───────────────────────────────────────────────────
 
 func TestDecodeSMSC_Variants(t *testing.T) {
-cases := []struct {
-name    string
-raw     []byte
-wantLen int
-}{
-{"empty", []byte{}, 0},
-{"zero_length", []byte{0x00}, 1},
-{"international", []byte{0x06, 0x91, 0x94, 0x71, 0x92, 0x62, 0xF0}, 7},
-{"national", []byte{0x05, 0x81, 0x94, 0x71, 0x92, 0x62}, 6},
-{"truncated", []byte{0x06, 0x91, 0x94}, 7}, // signals truncation
-}
-for _, tc := range cases {
-tc := tc
-t.Run(tc.name, func(t *testing.T) {
-_, n := decodeSMSC(tc.raw)
-if n != tc.wantLen {
-t.Errorf("decodeSMSC(%s) consumed %d bytes, want %d", tc.name, n, tc.wantLen)
-}
-})
-}
+	cases := []struct {
+		name    string
+		raw     []byte
+		wantLen int
+	}{
+		{"empty", []byte{}, 0},
+		{"zero_length", []byte{0x00}, 1},
+		{"international", []byte{0x06, 0x91, 0x94, 0x71, 0x92, 0x62, 0xF0}, 7},
+		{"national", []byte{0x05, 0x81, 0x94, 0x71, 0x92, 0x62}, 6},
+		{"truncated", []byte{0x06, 0x91, 0x94}, 7}, // signals truncation
+	}
+	for _, tc := range cases {
+		tc := tc
+		t.Run(tc.name, func(t *testing.T) {
+			_, n := decodeSMSC(tc.raw)
+			if n != tc.wantLen {
+				t.Errorf("decodeSMSC(%s) consumed %d bytes, want %d", tc.name, n, tc.wantLen)
+			}
+		})
+	}
 }
 
 // ── GSM7 escape / extension coverage ─────────────────────────────────────
 
 // TestDecodeGSM7Text_Escapes verifies escape-table characters decode correctly.
 func TestDecodeGSM7Text_Escapes(t *testing.T) {
-// ESC + 0x28 → '{'
-codes := []byte{0x1B, 0x28}
-got := decodeGSM7Text(codes)
-if got != "{" {
-t.Errorf("decodeGSM7Text ESC+0x28 = %q, want %q", got, "{")
-}
+	// ESC + 0x28 → '{'
+	codes := []byte{0x1B, 0x28}
+	got := decodeGSM7Text(codes)
+	if got != "{" {
+		t.Errorf("decodeGSM7Text ESC+0x28 = %q, want %q", got, "{")
+	}
 }
 
 // TestDecodeGSM7Text_TruncatedEscape verifies a trailing ESC byte is silently dropped.
 func TestDecodeGSM7Text_TruncatedEscape(t *testing.T) {
-codes := []byte{0x48, 0x1B} // 'H' then lone ESC
-got := decodeGSM7Text(codes)
-if got != "H" {
-t.Errorf("decodeGSM7Text trailing ESC = %q, want %q", got, "H")
-}
+	codes := []byte{0x48, 0x1B} // 'H' then lone ESC
+	got := decodeGSM7Text(codes)
+	if got != "H" {
+		t.Errorf("decodeGSM7Text trailing ESC = %q, want %q", got, "H")
+	}
 }
 
 // TestEncodeGSM7Text_ExtensionChars encodes extension characters and checks non-empty output.
 func TestEncodeGSM7Text_ExtensionChars(t *testing.T) {
-extChars := []struct {
-r    rune
-desc string
-}{
-{'{', "left_brace"},
-{'}', "right_brace"},
-{'[', "left_bracket"},
-{']', "right_bracket"},
-{'\\', "backslash"},
-{'~', "tilde"},
-{'|', "pipe"},
-{'^', "caret"},
-{'€', "euro"},
-}
-for _, ec := range extChars {
-ec := ec
-t.Run(ec.desc, func(t *testing.T) {
-encoded := encodeGSM7Text(string(ec.r))
-if len(encoded) == 0 {
-t.Errorf("encodeGSM7Text(%q) returned empty slice", ec.r)
-}
-// Extension chars must start with ESC (0x1B)
-if encoded[0] != 0x1B {
-t.Errorf("encodeGSM7Text(%q)[0] = 0x%02X, want 0x1B (ESC)", ec.r, encoded[0])
-}
-})
-}
+	extChars := []struct {
+		r    rune
+		desc string
+	}{
+		{'{', "left_brace"},
+		{'}', "right_brace"},
+		{'[', "left_bracket"},
+		{']', "right_bracket"},
+		{'\\', "backslash"},
+		{'~', "tilde"},
+		{'|', "pipe"},
+		{'^', "caret"},
+		{'€', "euro"},
+	}
+	for _, ec := range extChars {
+		ec := ec
+		t.Run(ec.desc, func(t *testing.T) {
+			encoded := encodeGSM7Text(string(ec.r))
+			if len(encoded) == 0 {
+				t.Errorf("encodeGSM7Text(%q) returned empty slice", ec.r)
+			}
+			// Extension chars must start with ESC (0x1B)
+			if encoded[0] != 0x1B {
+				t.Errorf("encodeGSM7Text(%q)[0] = 0x%02X, want 0x1B (ESC)", ec.r, encoded[0])
+			}
+		})
+	}
 }

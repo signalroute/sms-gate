@@ -35,7 +35,7 @@ func makeFactory(addr string, met *metrics.Gateway) modem.WorkerFactory {
 }
 
 // TestRunSupervisedExitsOnContextCancel verifies that RunSupervised returns
-// promptly when the context is cancelled.
+// promptly when the context is canceled.
 func TestRunSupervisedExitsOnContextCancel(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 
@@ -101,4 +101,3 @@ func TestRunSupervisedIncrementsCounter(t *testing.T) {
 		t.Errorf("modem_reconnect_total = %.0f, want ≥ 1", got)
 	}
 }
-

@@ -60,38 +60,20 @@ func buildMinimalDeliverPDU(udl byte, ud []byte) string {
 	// PDU type: MTI=00 (SMS-DELIVER), no UDHI
 	// OA: 10 digits, 0x91 international, BCD 21436587F9
 	// PID=0x00, DCS=0x00, SCTS=7 zero bytes
-	pdu := []byte{
-		0x00,                                     // SMSC len = 0
-		0x00,                                     // PDU type: SMS-DELIVER, no UDHI
-		0x0A,                                     // OA length: 10 digits
-		0x91,                                     // OA type: international
-		0x21, 0x43, 0x65, 0x87, 0xF9,            // BCD "+12345678F9" → +1234567890 (approx)
+	pdu := make([]byte, 0, 19+len(ud))
+	pdu = append(pdu,
+		0x00,                         // SMSC len = 0
+		0x00,                         // PDU type: SMS-DELIVER, no UDHI
+		0x0A,                         // OA length: 10 digits
+		0x91,                         // OA type: international
+		0x21, 0x43, 0x65, 0x87, 0xF9, // BCD "+12345678F9" → +1234567890 (approx)
 		0x00,                                     // PID
 		0x00,                                     // DCS: GSM7
 		0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // SCTS (7 bytes, zeros = invalid date but OK for test)
 		udl, // UDL
-	}
+	)
 	pdu = append(pdu, ud...)
-	var sb strings.Builder
-	for _, b := range pdu {
-		sb.WriteString(strings.ToUpper(strings.TrimLeft(
-			strings.ReplaceAll(strings.ToUpper(
-				strings.TrimPrefix(strings.TrimPrefix(strings.TrimPrefix(
-					strings.ToUpper(string([]byte{hexNibble(b >> 4), hexNibble(b & 0xF)}),
-				), ""), ""), ""),
-			), " ", ""),
-			"",
-		)))
-	}
-	// Simpler: build hex directly
 	return bytesToHex(pdu)
-}
-
-func hexNibble(n byte) byte {
-	if n < 10 {
-		return '0' + n
-	}
-	return 'A' + n - 10
 }
 
 func bytesToHex(b []byte) string {
@@ -125,10 +107,10 @@ func TestDecodePDU_MalformedUDL_NoPanic(t *testing.T) {
 func TestDecodePDU_TruncatedAtPID_Error(t *testing.T) {
 	// Build a PDU that ends right after the OA digits (no PID/DCS/SCTS/UDL).
 	truncated := []byte{
-		0x00, // SMSC len = 0
-		0x00, // PDU type: SMS-DELIVER
-		0x04, // OA: 4 digits
-		0x91, // OA type: international
+		0x00,       // SMSC len = 0
+		0x00,       // PDU type: SMS-DELIVER
+		0x04,       // OA: 4 digits
+		0x91,       // OA type: international
 		0x12, 0x34, // 2 BCD bytes for 4 digits
 		// Stops here — no PID, DCS, SCTS, UDL, UD
 	}
@@ -152,8 +134,8 @@ func TestDecodePDU_InvalidUDHLength_Error(t *testing.T) {
 		0x00,                                     // PID
 		0x00,                                     // DCS: GSM7
 		0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // SCTS
-		0x05,                                     // UDL = 5
-		0xFF, 0x01, 0x02, 0x03, 0x04,            // UD[0]=0xFF → UDH len=255 but only 5 bytes
+		0x05,                         // UDL = 5
+		0xFF, 0x01, 0x02, 0x03, 0x04, // UD[0]=0xFF → UDH len=255 but only 5 bytes
 	}
 	_, err := DecodePDU(bytesToHex(pdu))
 	if err == nil {
@@ -205,7 +187,7 @@ func TestDecodePDU_AllZeros_Error(t *testing.T) {
 // ── decodeGSM7Text unknown extension ─────────────────────────────────────
 
 // TestDecodeGSM7Text_UnknownExtension verifies that an unknown extension code
-// (ESC + unrecognised byte) produces a space rather than silently dropping the
+// (ESC + unrecognized byte) produces a space rather than silently dropping the
 // character (issue #168 related).
 func TestDecodeGSM7Text_UnknownExtension(t *testing.T) {
 	// Code sequence: [0x1B, 0x01] — ESC followed by unknown code 0x01.

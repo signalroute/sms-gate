@@ -138,6 +138,9 @@ func TestHandleInbound_PayloadAtLimit(t *testing.T) {
 // not set (static token is used).
 func TestManagerConfig_TokenFn_DefaultIsNil(t *testing.T) {
 	cfg := ManagerConfig{Token: "static-token"}
+	if cfg.Token != "static-token" {
+		t.Fatalf("unexpected static token %q", cfg.Token)
+	}
 	if cfg.TokenFn != nil {
 		t.Fatal("TokenFn should be nil by default")
 	}
@@ -157,6 +160,9 @@ func TestManagerConfig_TokenFn_CanBeSet(t *testing.T) {
 	got := cfg.TokenFn()
 	if got != "dynamic-token" {
 		t.Fatalf("TokenFn returned %q, want %q", got, "dynamic-token")
+	}
+	if cfg.Token != "static" {
+		t.Fatalf("static token unexpectedly changed to %q", cfg.Token)
 	}
 	if calls != 1 {
 		t.Fatalf("TokenFn called %d times, want 1", calls)

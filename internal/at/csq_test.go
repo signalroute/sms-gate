@@ -15,13 +15,13 @@ func TestParseCSQ_ValidValues(t *testing.T) {
 		line    string
 		wantDBm int
 	}{
-		{"+CSQ: 0,0", -113},  // minimum
+		{"+CSQ: 0,0", -113}, // minimum
 		{"+CSQ: 1,0", -111},
-		{"+CSQ: 18,0", -77},  // -113 + 18*2 = -77
-		{"+CSQ: 31,0", -51},  // maximum measurable
-		{"+CSQ: 99,0", -113}, // not detectable → -113
-		{"+CSQ: 0,7", -113},  // BER=7 (unused) still works
-		{"+CSQ:18,0", -77},   // no space after colon
+		{"+CSQ: 18,0", -77},     // -113 + 18*2 = -77
+		{"+CSQ: 31,0", -51},     // maximum measurable
+		{"+CSQ: 99,0", -113},    // not detectable → -113
+		{"+CSQ: 0,7", -113},     // BER=7 (unused) still works
+		{"+CSQ:18,0", -77},      // no space after colon
 		{"  +CSQ: 10,1  ", -93}, // leading/trailing whitespace
 	}
 

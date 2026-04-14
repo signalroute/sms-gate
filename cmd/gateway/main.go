@@ -26,7 +26,9 @@ func init() {
 	// Force the pure-Go DNS resolver to avoid cgo dependency on musl/glibc
 	// and ensure consistent behavior across cross-compiled targets (#128).
 	if os.Getenv("GODEBUG") == "" {
-		os.Setenv("GODEBUG", "netdns=go")
+		if err := os.Setenv("GODEBUG", "netdns=go"); err != nil {
+			panic(fmt.Sprintf("set GODEBUG: %v", err))
+		}
 	}
 }
 

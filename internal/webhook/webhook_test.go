@@ -159,7 +159,7 @@ func TestNotify_FailsAfterMaxAttempts(t *testing.T) {
 	}
 }
 
-// TestNotify_ContextCancellation verifies delivery stops when ctx is cancelled.
+// TestNotify_ContextCancellation verifies delivery stops when ctx is canceled.
 func TestNotify_ContextCancellation(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusInternalServerError)
@@ -176,7 +176,7 @@ func TestNotify_ContextCancellation(t *testing.T) {
 	})
 	err := n.Notify(ctx, testPayload())
 	if err == nil {
-		t.Fatal("expected error when context is cancelled")
+		t.Fatal("expected error when context is canceled")
 	}
 }
 

@@ -231,8 +231,6 @@ func TestFromEnv_TLSConfigIsUsable(t *testing.T) {
 	if leaf.Subject.CommonName != "test" {
 		t.Errorf("unexpected CN %q", leaf.Subject.CommonName)
 	}
-	// Verify it satisfies the tls.Certificate interface expectation.
-	_ = tls.Certificate(cert)
 }
 
 // TestFromEnv_MinTLSVersion verifies that FromEnv always sets MinVersion to

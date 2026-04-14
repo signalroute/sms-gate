@@ -118,7 +118,7 @@ func (n *Notifier) Notify(ctx context.Context, p Payload) error {
 	var lastErr error
 	for attempt := 1; attempt <= maxAttempts; attempt++ {
 		if err := ctx.Err(); err != nil {
-			return fmt.Errorf("webhook: context cancelled: %w", err)
+			return fmt.Errorf("webhook: context canceled: %w", err)
 		}
 
 		if err := n.post(ctx, body); err != nil {
@@ -132,7 +132,7 @@ func (n *Notifier) Notify(ctx context.Context, p Payload) error {
 				delay := backoff.Compute(attempt)
 				select {
 				case <-ctx.Done():
-					return fmt.Errorf("webhook: context cancelled during backoff: %w", ctx.Err())
+					return fmt.Errorf("webhook: context canceled during backoff: %w", ctx.Err())
 				case <-time.After(delay):
 				}
 			}
@@ -160,7 +160,7 @@ func (n *Notifier) post(ctx context.Context, body []byte) error {
 	if err != nil {
 		return err
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 		return fmt.Errorf("unexpected status %d", resp.StatusCode)

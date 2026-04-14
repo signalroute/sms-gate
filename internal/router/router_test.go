@@ -235,41 +235,41 @@ func TestRouter_AckFn_IsWiredToWorker(t *testing.T) {
 // inboundCh is full, the TasksDropped counter is incremented for the correct
 // ICCID (#11).
 func TestRouter_Dispatch_ModemBusy_EmitsMetric(t *testing.T) {
-iccid := "89490200001234567891"
-reg := makeRegistry(t, iccid)
+	iccid := "89490200001234567891"
+	reg := makeRegistry(t, iccid)
 
-// Build a real (but isolated) metrics registry so we can read the counter.
-promReg := prometheus.NewRegistry()
-m := metrics.New(promReg)
-rtr := New(reg, func(evt any) {}, m)
+	// Build a real (but isolated) metrics registry so we can read the counter.
+	promReg := prometheus.NewRegistry()
+	m := metrics.New(promReg)
+	rtr := New(reg, func(evt any) {}, m)
 
-// Fill the single-slot worker channel.
-w, _ := reg.Lookup(iccid)
-w.TaskCh() <- modem.InboundTask{}
+	// Fill the single-slot worker channel.
+	w, _ := reg.Lookup(iccid)
+	w.TaskCh() <- modem.InboundTask{}
 
-task := makeTask(tunnel.ActionSendSMS, tunnel.SendSMSPayload{
-ICCID: iccid, To: "+49151", Body: "metric test",
-})
-_ = rtr.Dispatch(task) // expect ErrModemBusy
+	task := makeTask(tunnel.ActionSendSMS, tunnel.SendSMSPayload{
+		ICCID: iccid, To: "+49151", Body: "metric test",
+	})
+	_ = rtr.Dispatch(task) // expect ErrModemBusy
 
-// Gather the counter value.
-mfs, err := promReg.Gather()
-if err != nil {
-t.Fatalf("prometheus gather: %v", err)
-}
-var dropped float64
-for _, mf := range mfs {
-if mf.GetName() == "smsgate_tasks_dropped_total" {
-for _, m := range mf.GetMetric() {
-for _, lp := range m.GetLabel() {
-if lp.GetName() == "iccid" && lp.GetValue() == iccid {
-dropped = m.GetCounter().GetValue()
-}
-}
-}
-}
-}
-if dropped != 1 {
-t.Fatalf("expected smsgate_tasks_dropped_total{iccid=%q}=1, got %v", iccid, dropped)
-}
+	// Gather the counter value.
+	mfs, err := promReg.Gather()
+	if err != nil {
+		t.Fatalf("prometheus gather: %v", err)
+	}
+	var dropped float64
+	for _, mf := range mfs {
+		if mf.GetName() == "smsgate_tasks_dropped_total" {
+			for _, m := range mf.GetMetric() {
+				for _, lp := range m.GetLabel() {
+					if lp.GetName() == "iccid" && lp.GetValue() == iccid {
+						dropped = m.GetCounter().GetValue()
+					}
+				}
+			}
+		}
+	}
+	if dropped != 1 {
+		t.Fatalf("expected smsgate_tasks_dropped_total{iccid=%q}=1, got %v", iccid, dropped)
+	}
 }

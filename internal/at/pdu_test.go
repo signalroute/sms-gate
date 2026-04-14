@@ -20,12 +20,12 @@ func TestIsGSM7_ASCII(t *testing.T) {
 		{"0123456789", true},
 		{"AT+CMGS", true},
 		{"Your OTP is 882731.", true},
-		{"@£$¥", true},           // GSM7 charset positions 0-3
-		{"ÄÖÜäöü", true},         // GSM7 charset: positions 91,92,94,123,124,126
-		{"€", true},              // extension table
-		{"Hello 🌍", false},      // emoji – not in GSM7
-		{"Привет", false},         // Cyrillic – not in GSM7
-		{"中文", false},            // CJK – not in GSM7
+		{"@£$¥", true},     // GSM7 charset positions 0-3
+		{"ÄÖÜäöü", true},   // GSM7 charset: positions 91,92,94,123,124,126
+		{"€", true},        // extension table
+		{"Hello 🌍", false}, // emoji – not in GSM7
+		{"Привет", false},  // Cyrillic – not in GSM7
+		{"中文", false},      // CJK – not in GSM7
 	}
 	for _, tc := range cases {
 		t.Run(tc.s, func(t *testing.T) {
@@ -74,10 +74,10 @@ func min(a, b int) int {
 
 func TestUCS2Roundtrip(t *testing.T) {
 	msgs := []string{
-		"Hëllo",         // Latin extended
-		"Привет",        // Cyrillic
-		"中文测试",         // CJK
-		"Hello 🌍",      // emoji (via UTF-16 surrogate pair)
+		"Hëllo",   // Latin extended
+		"Привет",  // Cyrillic
+		"中文测试",    // CJK
+		"Hello 🌍", // emoji (via UTF-16 surrogate pair)
 		"Mix: abc + ÄÖÜ",
 	}
 	for _, msg := range msgs {

@@ -116,18 +116,18 @@ func TestMarkDelivered_Comprehensive(t *testing.T) {
 	for i := 0; i < total; i++ {
 		i := i
 		t.Run(fmt.Sprintf("ack_%d", i), func(t *testing.T) {
-			before, err := buf.PendingCount()
-			if err != nil {
-				t.Fatalf("PendingCount before: %v", err)
+			before, countErr := buf.PendingCount()
+			if countErr != nil {
+				t.Fatalf("PendingCount before: %v", countErr)
 			}
 
-			if err := buf.MarkDelivered(ids[i]); err != nil {
-				t.Fatalf("MarkDelivered(%d): %v", ids[i], err)
+			if markErr := buf.MarkDelivered(ids[i]); markErr != nil {
+				t.Fatalf("MarkDelivered(%d): %v", ids[i], markErr)
 			}
 
-			after, err := buf.PendingCount()
-			if err != nil {
-				t.Fatalf("PendingCount after: %v", err)
+			after, countErr := buf.PendingCount()
+			if countErr != nil {
+				t.Fatalf("PendingCount after: %v", countErr)
 			}
 			if after != before-1 {
 				t.Errorf("PendingCount: before=%d after=%d, expected decrement by 1", before, after)

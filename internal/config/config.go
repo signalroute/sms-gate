@@ -33,29 +33,29 @@ type GatewaySection struct {
 }
 
 type TunnelSection struct {
-	URL                  string `yaml:"url"`
-	Token                string `yaml:"token"`
-	PingIntervalS        int    `yaml:"ping_interval_s"`
-	PingTimeoutS         int    `yaml:"ping_timeout_s"`
-	HeartbeatIntervalS   int    `yaml:"heartbeat_interval_s"`
-	ACKTimeoutS          int    `yaml:"ack_timeout_s"`
-	ReconnectBaseS       int    `yaml:"reconnect_base_s"`
-	ReconnectMaxS        int    `yaml:"reconnect_max_s"`
+	URL                string `yaml:"url"`
+	Token              string `yaml:"token"`
+	PingIntervalS      int    `yaml:"ping_interval_s"`
+	PingTimeoutS       int    `yaml:"ping_timeout_s"`
+	HeartbeatIntervalS int    `yaml:"heartbeat_interval_s"`
+	ACKTimeoutS        int    `yaml:"ack_timeout_s"`
+	ReconnectBaseS     int    `yaml:"reconnect_base_s"`
+	ReconnectMaxS      int    `yaml:"reconnect_max_s"`
 	// HandshakeTimeoutS is the WebSocket handshake deadline in seconds (#125).
-	HandshakeTimeoutS    int    `yaml:"handshake_timeout_s"`
+	HandshakeTimeoutS int `yaml:"handshake_timeout_s"`
 }
 
 type BufferSection struct {
-	DBPath          string `yaml:"db_path"`
-	RetentionDays   int    `yaml:"retention_days"`
-	FlushIntervalM  int    `yaml:"flush_interval_m"`
+	DBPath         string `yaml:"db_path"`
+	RetentionDays  int    `yaml:"retention_days"`
+	FlushIntervalM int    `yaml:"flush_interval_m"`
 }
 
 type ModemConfig struct {
-	Port           string          `yaml:"port"`
-	Baud           int             `yaml:"baud"`
-	RateLimit      RateLimitConfig `yaml:"rate_limit"`
-	ExpectedICCID  string          `yaml:"expected_iccid,omitempty"` // optional SIM ICCID guard (#135)
+	Port          string          `yaml:"port"`
+	Baud          int             `yaml:"baud"`
+	RateLimit     RateLimitConfig `yaml:"rate_limit"`
+	ExpectedICCID string          `yaml:"expected_iccid,omitempty"` // optional SIM ICCID guard (#135)
 }
 
 type RateLimitConfig struct {
@@ -65,10 +65,10 @@ type RateLimitConfig struct {
 }
 
 type HealthSection struct {
-	KeepaliveIntervalS    int `yaml:"keepalive_interval_s"`
-	SIMCapacityWarnPct    int `yaml:"sim_capacity_warn_pct"`
-	SIMCapacityPurgePct   int `yaml:"sim_capacity_purge_pct"`
-	SignalPollIntervalS   int `yaml:"signal_poll_interval_s"`
+	KeepaliveIntervalS  int `yaml:"keepalive_interval_s"`
+	SIMCapacityWarnPct  int `yaml:"sim_capacity_warn_pct"`
+	SIMCapacityPurgePct int `yaml:"sim_capacity_purge_pct"`
+	SignalPollIntervalS int `yaml:"signal_poll_interval_s"`
 }
 
 type MetricsSection struct {

@@ -30,9 +30,7 @@ func TestBuildMeta_JSON(t *testing.T) {
 
 func TestGateway_ShutdownEmpty(t *testing.T) {
 	gw := &Gateway{}
-	if gw != nil {
-		t.Log("gateway created, shutdown path ok for zero value")
-	}
+	t.Logf("gateway zero value created: %#v", gw)
 }
 
 // ── TestWithBuildMeta ────────────────────────────────────────────────────

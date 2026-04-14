@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (C) 2026 Signalroute
 
-// worker_shutdown_test.go: tests for graceful shutdown behaviour.
+// worker_shutdown_test.go: tests for graceful shutdown behavior.
 // Covers issues #175 (in-flight tasks dropped on SIGTERM) and #176
 // (buffer not flushed on SIGTERM).
 package modem
@@ -171,4 +171,3 @@ func TestDrainInboundCh_NilAckFnIsSkipped(t *testing.T) {
 	}()
 	w.drainInboundCh(testSlogLogger())
 }
-

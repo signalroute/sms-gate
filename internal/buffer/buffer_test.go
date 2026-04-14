@@ -219,8 +219,8 @@ func TestPurge_RemovesOldDelivered(t *testing.T) {
 	buf.MarkDelivered(id)
 
 	// Manually back-date the created_at to 8 days ago.
-	oldTs := time.Now().AddDate(0, 0, -8).UnixMilli()
-	_, err = buf.db.Exec(`UPDATE sms_buffer SET created_at = ? WHERE id = ?`, oldTs, id)
+	oldTS := time.Now().AddDate(0, 0, -8).UnixMilli()
+	_, err = buf.db.Exec(`UPDATE sms_buffer SET created_at = ? WHERE id = ?`, oldTS, id)
 	if err != nil {
 		t.Fatalf("backdate: %v", err)
 	}
@@ -255,8 +255,8 @@ func TestPurge_NeverPurgesPending(t *testing.T) {
 	// Insert a PENDING row with a very old date.
 	id, _, _ := buf.Insert("89490200001234567890", "+491", "old pending", "sha256:OLD2", "", time.Now().UnixMilli())
 
-	oldTs := time.Now().AddDate(0, 0, -30).UnixMilli()
-	buf.db.Exec(`UPDATE sms_buffer SET created_at = ? WHERE id = ?`, oldTs, id)
+	oldTS := time.Now().AddDate(0, 0, -30).UnixMilli()
+	buf.db.Exec(`UPDATE sms_buffer SET created_at = ? WHERE id = ?`, oldTS, id)
 
 	n, _ := buf.Purge(7)
 	if n != 0 {

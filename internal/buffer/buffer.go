@@ -71,21 +71,24 @@ func Open(path string, logger *slog.Logger) (*Buffer, error) {
 	db.SetMaxOpenConns(1)
 
 	if _, err := db.Exec(schema); err != nil {
-		db.Close()
+		_ = db.Close()
 		return nil, fmt.Errorf("apply schema: %w", err)
 	}
 
 	// Schema version tracking (#80).
 	var ver int
-	_ = db.QueryRow("PRAGMA user_version").Scan(&ver)
+	if err := db.QueryRow("PRAGMA user_version").Scan(&ver); err != nil {
+		_ = db.Close()
+		return nil, fmt.Errorf("query schema version: %w", err)
+	}
 	if ver == 0 {
 		// Fresh database or unversioned — stamp current version.
 		if _, err := db.Exec(fmt.Sprintf("PRAGMA user_version = %d", schemaVersion)); err != nil {
-			db.Close()
+			_ = db.Close()
 			return nil, fmt.Errorf("set schema version: %w", err)
 		}
 	} else if ver > schemaVersion {
-		db.Close()
+		_ = db.Close()
 		return nil, fmt.Errorf("buffer schema version %d is newer than supported %d — upgrade sms-gate", ver, schemaVersion)
 	}
 
@@ -107,8 +110,14 @@ func (b *Buffer) Insert(iccid, sender, body, pduHash, smsc string, receivedAt in
 	if err != nil {
 		return 0, false, fmt.Errorf("insert sms: %w", err)
 	}
-	id, _ := res.LastInsertId()
-	rows, _ := res.RowsAffected()
+	id, err := res.LastInsertId()
+	if err != nil {
+		return 0, false, fmt.Errorf("insert sms: last insert id: %w", err)
+	}
+	rows, err := res.RowsAffected()
+	if err != nil {
+		return 0, false, fmt.Errorf("insert sms: rows affected: %w", err)
+	}
 	if rows == 0 {
 		return 0, true, nil
 	}
@@ -144,7 +153,7 @@ func (b *Buffer) PendingRows() ([]SMSRecord, error) {
 	if err != nil {
 		return nil, fmt.Errorf("query pending: %w", err)
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	var records []SMSRecord
 	for rows.Next() {
@@ -168,7 +177,10 @@ func (b *Buffer) Purge(retentionDays int) (int64, error) {
 	if err != nil {
 		return 0, fmt.Errorf("purge: %w", err)
 	}
-	n, _ := res.RowsAffected()
+	n, err := res.RowsAffected()
+	if err != nil {
+		return 0, fmt.Errorf("purge: rows affected: %w", err)
+	}
 	if n > 0 {
 		b.logger.Info("buffer: purged delivered rows", "count", n, "retention_days", retentionDays)
 	}

@@ -77,26 +77,26 @@ func (s TunnelState) String() string {
 const MaxInboundPayloadBytes = 64 * 1024
 
 type ManagerConfig struct {
-	GatewayID        string
-	AgentVersion     string
-	URL              string
-	Token            string
+	GatewayID    string
+	AgentVersion string
+	URL          string
+	Token        string
 	// TokenFn, when non-nil, is called on each dial to obtain the bearer token.
 	// This allows token rotation without restarting the gateway (#184).
 	// When nil, Token is used as a static value.
 	TokenFn           func() string
-	PingInterval     time.Duration
-	PingTimeout      time.Duration
+	PingInterval      time.Duration
+	PingTimeout       time.Duration
 	HeartbeatInterval time.Duration
-	ACKTimeout       time.Duration
-	ReconnectBase    time.Duration
-	ReconnectMax     time.Duration
-	Buf              *buffer.Buffer
-	RetentionDays    int
-	FlushInterval    time.Duration
-	StatusFn         func() []ModemStatus // called for HELLO and heartbeats
-	Logger           *slog.Logger
-	Metrics          *metrics.Gateway
+	ACKTimeout        time.Duration
+	ReconnectBase     time.Duration
+	ReconnectMax      time.Duration
+	Buf               *buffer.Buffer
+	RetentionDays     int
+	FlushInterval     time.Duration
+	StatusFn          func() []ModemStatus // called for HELLO and heartbeats
+	Logger            *slog.Logger
+	Metrics           *metrics.Gateway
 	// TLSSkipVerify disables server certificate verification.
 	// INSECURE — only set this in local development environments.
 	// The gateway logs a prominent warning when this is true (#177).
@@ -116,8 +116,8 @@ const MaxPendingACKs = 1000
 
 // Manager manages the WebSocket tunnel lifecycle.
 type Manager struct {
-	cfg   ManagerConfig
-	log   *slog.Logger
+	cfg ManagerConfig
+	log *slog.Logger
 
 	state     atomic.Int32
 	attempt   atomic.Int64
@@ -221,7 +221,7 @@ func (m *Manager) Run(ctx context.Context) {
 	}
 }
 
-// ── Dialling ──────────────────────────────────────────────────────────────
+// ── Dialing ───────────────────────────────────────────────────────────────
 
 func (m *Manager) dial(ctx context.Context) (*websocket.Conn, error) {
 	m.state.Store(int32(TunnelConnecting))
@@ -231,9 +231,11 @@ func (m *Manager) dial(ctx context.Context) (*websocket.Conn, error) {
 	hdr.Set("X-Gateway-ID", m.cfg.GatewayID)
 	hdr.Set("X-Protocol-Version", fmt.Sprintf("%d", ProtocolVersion))
 
-	dialer := websocket.Dialer{
-		HandshakeTimeout: 15 * time.Second,
+	handshakeTimeout := m.cfg.HandshakeTimeout
+	if handshakeTimeout <= 0 {
+		handshakeTimeout = 15 * time.Second
 	}
+	dialer := websocket.Dialer{HandshakeTimeout: handshakeTimeout}
 
 	if m.cfg.TLSSkipVerify {
 		// Log a loud warning so it's impossible to miss in production logs.
@@ -246,6 +248,9 @@ func (m *Manager) dial(ctx context.Context) (*websocket.Conn, error) {
 	}
 
 	conn, resp, err := dialer.DialContext(ctx, m.cfg.URL, hdr)
+	if resp != nil && resp.Body != nil {
+		defer func() { _ = resp.Body.Close() }()
+	}
 	if err != nil {
 		if resp != nil && (resp.StatusCode == http.StatusUnauthorized || resp.StatusCode == http.StatusForbidden) {
 			m.log.Error("authentication rejected — check gateway token", "status", resp.StatusCode)
@@ -260,7 +265,7 @@ func (m *Manager) dial(ctx context.Context) (*websocket.Conn, error) {
 // ── Session ───────────────────────────────────────────────────────────────
 
 func (m *Manager) runSession(ctx context.Context, conn *websocket.Conn) {
-	defer conn.Close()
+	defer func() { _ = conn.Close() }()
 
 	// Purge stale delivered rows on session start (#146).
 	if n, err := m.cfg.Buf.Purge(m.cfg.RetentionDays); err != nil {
@@ -318,7 +323,9 @@ func (m *Manager) runSession(ctx context.Context, conn *websocket.Conn) {
 			case <-sessionCtx.Done():
 				return
 			case <-ticker.C:
-				_, _ = m.cfg.Buf.Purge(m.cfg.RetentionDays)
+				if _, err := m.cfg.Buf.Purge(m.cfg.RetentionDays); err != nil {
+					m.log.Warn("periodic purge failed", "err", err)
+				}
 			}
 		}
 	})
@@ -356,7 +363,11 @@ func (m *Manager) writer(ctx context.Context, conn *websocket.Conn, cancel conte
 
 		case <-pingTicker.C:
 			deadline := time.Now().Add(m.cfg.PingTimeout)
-			conn.SetReadDeadline(deadline)
+			if err := conn.SetReadDeadline(deadline); err != nil {
+				m.log.Error("set read deadline failed", "err", err)
+				cancel()
+				return
+			}
 			if err := conn.WriteMessage(websocket.PingMessage, nil); err != nil {
 				m.log.Error("ping failed", "err", err)
 				cancel()
@@ -378,7 +389,10 @@ func (m *Manager) writer(ctx context.Context, conn *websocket.Conn, cancel conte
 func (m *Manager) reader(ctx context.Context, conn *websocket.Conn, cancel context.CancelFunc) {
 	conn.SetPongHandler(func(data string) error {
 		// Reset read deadline on pong receipt.
-		conn.SetReadDeadline(time.Now().Add(m.cfg.PingInterval + m.cfg.PingTimeout))
+		if err := conn.SetReadDeadline(time.Now().Add(m.cfg.PingInterval + m.cfg.PingTimeout)); err != nil {
+			m.log.Warn("set read deadline on pong failed", "err", err)
+			return err
+		}
 		return nil
 	})
 
@@ -452,7 +466,10 @@ func (m *Manager) sendHello(conn *websocket.Conn) error {
 }
 
 func (m *Manager) sendHeartbeat(conn *websocket.Conn) error {
-	pending, _ := m.cfg.Buf.PendingCount()
+	pending, err := m.cfg.Buf.PendingCount()
+	if err != nil {
+		return fmt.Errorf("query pending buffer count: %w", err)
+	}
 	m.metrics().SMSPendingCount.Set(float64(pending))
 
 	evt := HeartbeatEvent{

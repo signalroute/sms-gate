@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"io"
 	"log/slog"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -86,8 +87,8 @@ type pendingCmd struct {
 type Serializer struct {
 	port io.ReadWriteCloser
 
-	writeMu sync.Mutex  // serialize port writes
-	cmdMu   sync.Mutex  // protect pending
+	writeMu sync.Mutex // serialize port writes
+	cmdMu   sync.Mutex // protect pending
 	pending *pendingCmd
 
 	// URCCH delivers unsolicited lines to the modem worker.
@@ -235,7 +236,7 @@ func (s *Serializer) Execute(cmd string, timeout time.Duration) ([]string, error
 			// waiting for bytes that will never arrive).  Without this, the
 			// reader leaks permanently on every modem that stops responding
 			// (#165).  After Close() any future Execute call returns ErrClosed.
-			s.Close()
+			_ = s.Close()
 			return nil, &ATError{Cmd: cmd, Cause: ErrTimeout}
 		case <-s.closed:
 			return nil, ErrClosed
@@ -295,7 +296,7 @@ func (s *Serializer) ExecuteSend(pduHex string, pduLen int, timeout time.Duratio
 				return 0, fmt.Errorf("CMGS rejected before prompt: %s", line)
 			}
 		case <-promptTimer.C:
-			s.Close()
+			_ = s.Close()
 			return 0, ErrSendPrompt
 		case <-s.closed:
 			return 0, ErrClosed
@@ -317,7 +318,9 @@ func (s *Serializer) ExecuteSend(pduHex string, pduLen int, timeout time.Duratio
 		case line := <-p.linesCh:
 			switch {
 			case strings.HasPrefix(line, "+CMGS:"):
-				fmt.Sscanf(strings.TrimPrefix(line, "+CMGS:"), " %d", &mr)
+				if _, err := fmt.Sscanf(strings.TrimPrefix(line, "+CMGS:"), " %d", &mr); err != nil {
+					return 0, fmt.Errorf("parse CMGS response %q: %w", line, err)
+				}
 			case line == "OK":
 				return mr, nil
 			case line == "ERROR":
@@ -328,7 +331,7 @@ func (s *Serializer) ExecuteSend(pduHex string, pduLen int, timeout time.Duratio
 				return 0, &ATError{Cmd: "AT+CMGS", Cause: ErrATError, Raw: line}
 			}
 		case <-timer.C:
-			s.Close()
+			_ = s.Close()
 			return 0, &ATError{Cmd: "AT+CMGS", Cause: ErrTimeout}
 		case <-s.closed:
 			return 0, ErrClosed
@@ -348,11 +351,11 @@ func (s *Serializer) Close() error {
 // ── Convenience wrappers for common AT commands ───────────────────────────
 
 const (
-	TimeoutPing   = 2 * time.Second
-	TimeoutStd    = 5 * time.Second
-	TimeoutSend   = 60 * time.Second
-	TimeoutReset  = 30 * time.Second
-	TimeoutRadio  = 15 * time.Second
+	TimeoutPing  = 2 * time.Second
+	TimeoutStd   = 5 * time.Second
+	TimeoutSend  = 60 * time.Second
+	TimeoutReset = 30 * time.Second
+	TimeoutRadio = 15 * time.Second
 )
 
 // Ping sends bare AT and returns nil if OK.
@@ -456,12 +459,7 @@ func (s *Serializer) SignalQuality() (int, error) {
 	}
 	for _, l := range lines {
 		if strings.HasPrefix(l, "+CSQ:") {
-			var csq, ber int
-			fmt.Sscanf(strings.TrimPrefix(l, "+CSQ:"), " %d,%d", &csq, &ber)
-			if csq == 99 {
-				return -113, nil // unknown / not detectable
-			}
-			return -113 + csq*2, nil
+			return ParseCSQ(l)
 		}
 	}
 	return 0, fmt.Errorf("no +CSQ in response: %w", ErrMalformedResponse)
@@ -483,13 +481,17 @@ func (s *Serializer) RegistrationStatus() (int, error) {
 		if strings.HasPrefix(l, "+CREG:") {
 			parts := strings.Split(strings.TrimPrefix(l, "+CREG:"), ",")
 			if len(parts) >= 2 {
-				var stat int
-				fmt.Sscanf(strings.TrimSpace(parts[1]), "%d", &stat)
+				stat, err := strconv.Atoi(strings.TrimSpace(parts[1]))
+				if err != nil {
+					return 0, fmt.Errorf("parse +CREG response %q: %w", l, err)
+				}
 				return stat, nil
 			}
 			// +CREG: <stat> (no n parameter)
-			var stat int
-			fmt.Sscanf(strings.TrimSpace(strings.TrimPrefix(l, "+CREG:")), "%d", &stat)
+			stat, err := strconv.Atoi(strings.TrimSpace(strings.TrimPrefix(l, "+CREG:")))
+			if err != nil {
+				return 0, fmt.Errorf("parse +CREG response %q: %w", l, err)
+			}
 			return stat, nil
 		}
 	}
@@ -507,12 +509,17 @@ func (s *Serializer) StorageStatus() (int, int, error) {
 		if strings.HasPrefix(l, "+CPMS:") {
 			// +CPMS: "SM",3,30,"SM",3,30,"SM",3,30
 			l = strings.TrimPrefix(l, "+CPMS:")
-			var used, total int
 			// Skip the quoted storage name
 			parts := strings.Split(l, ",")
 			if len(parts) >= 3 {
-				fmt.Sscanf(strings.TrimSpace(parts[1]), "%d", &used)
-				fmt.Sscanf(strings.TrimSpace(parts[2]), "%d", &total)
+				used, err := strconv.Atoi(strings.TrimSpace(parts[1]))
+				if err != nil {
+					return 0, 0, fmt.Errorf("parse +CPMS used count %q: %w", l, err)
+				}
+				total, err := strconv.Atoi(strings.TrimSpace(parts[2]))
+				if err != nil {
+					return 0, 0, fmt.Errorf("parse +CPMS total count %q: %w", l, err)
+				}
 				return used, total, nil
 			}
 		}
@@ -614,7 +621,9 @@ func ParseCREG(urc string) int {
 	if len(parts) >= 2 {
 		statStr = strings.TrimSpace(parts[1])
 	}
-	var stat int
-	fmt.Sscanf(statStr, "%d", &stat)
+	stat, err := strconv.Atoi(statStr)
+	if err != nil {
+		return 0
+	}
 	return stat
 }
