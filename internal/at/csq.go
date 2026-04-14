@@ -12,7 +12,7 @@ import (
 // dBm using the standard formula: RSSI = -113 + 2*CSQ.
 //
 // The special CSQ value 99 means "not detectable" and maps to -113 dBm
-// (matching the existing SignalQuality() behaviour).
+// (matching the existing SignalQuality() behavior).
 //
 // Returns an error if the line does not start with "+CSQ:" or contains an
 // unparseable value.

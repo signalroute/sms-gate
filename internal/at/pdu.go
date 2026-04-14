@@ -120,7 +120,7 @@ func packGSM7(chars []byte) []byte {
 }
 
 // decodeGSM7Text converts GSM7 code points to a UTF-8 string.
-// Unknown extension codes (ESC followed by an unrecognised byte) are
+// Unknown extension codes (ESC followed by an unrecognized byte) are
 // substituted with a space rather than silently dropped.
 func decodeGSM7Text(codes []byte) string {
 	var sb strings.Builder
@@ -270,7 +270,7 @@ func decodeSMSC(raw []byte) (string, int) {
 	return smsc, 1 + smscLen
 }
 
-// decodeSCTS decodes the 7-byte Service Centre Timestamp (3GPP TS 23.040 §9.2.3.11).
+// decodeSCTS decodes the 7-byte Service Center Timestamp (3GPP TS 23.040 §9.2.3.11).
 func decodeSCTS(data []byte) time.Time {
 	if len(data) < 7 {
 		return time.Time{}
@@ -654,7 +654,16 @@ func repackWithFill(chars []byte, fillBits int) []byte {
 func buildUCS2PDU(to string, runes []rune, ref, total, partNum byte) EncodedPDU {
 	multiPart := total > 0
 
-	var pdu []byte
+	body := encodeUCS2(string(runes))
+
+	var udh []byte
+	if multiPart {
+		udh = []byte{0x05, 0x00, 0x03, ref, total, partNum}
+	}
+
+	numDigits, daType, daData := encodeBCDAddress(to)
+
+	pdu := make([]byte, 0, 9+len(daData)+len(udh)+len(body))
 	pdu = append(pdu, 0x00) // SMSC
 
 	var pduType byte = 0x11
@@ -664,7 +673,6 @@ func buildUCS2PDU(to string, runes []rune, ref, total, partNum byte) EncodedPDU 
 	pdu = append(pdu, pduType)
 	pdu = append(pdu, 0x00) // MR
 
-	numDigits, daType, daData := encodeBCDAddress(to)
 	pdu = append(pdu, byte(numDigits))
 	pdu = append(pdu, daType)
 	pdu = append(pdu, daData...)
@@ -672,13 +680,6 @@ func buildUCS2PDU(to string, runes []rune, ref, total, partNum byte) EncodedPDU 
 	pdu = append(pdu, 0x00) // PID
 	pdu = append(pdu, 0x08) // DCS: UCS2
 	pdu = append(pdu, 0xAA) // VP
-
-	body := encodeUCS2(string(runes))
-
-	var udh []byte
-	if multiPart {
-		udh = []byte{0x05, 0x00, 0x03, ref, total, partNum}
-	}
 
 	udl := len(body) + len(udh)
 	pdu = append(pdu, byte(udl))

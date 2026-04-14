@@ -66,7 +66,7 @@ func TestExecute_Timeout_SubsequentCallReturnsErrClosed(t *testing.T) {
 }
 
 // TestExecuteSend_Timeout_ClosesSerializerAndUnblocksReader verifies the same
-// close-on-timeout behaviour in ExecuteSend (the two-phase CMGS flow).
+// close-on-timeout behavior in ExecuteSend (the two-phase CMGS flow).
 func TestExecuteSend_Timeout_ClosesSerializerAndUnblocksReader(t *testing.T) {
 	port := newMockPort()
 	s := NewSerializer(port, nil)

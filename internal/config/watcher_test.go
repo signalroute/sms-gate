@@ -45,21 +45,33 @@ func writeWatcherConfig(t *testing.T, content string) string {
 }
 
 // fakeNotify captures the signal channel so tests can inject signals manually.
-func fakeNotify(out *chan<- os.Signal) func(chan<- os.Signal, ...os.Signal) {
-	return func(ch chan<- os.Signal, sigs ...os.Signal) {
-		*out = ch
+func fakeNotify(out chan<- chan<- os.Signal) func(chan<- os.Signal, ...os.Signal) {
+	return func(ch chan<- os.Signal, _ ...os.Signal) {
+		out <- ch
+	}
+}
+
+func waitForSignalChannel(t *testing.T, ready <-chan chan<- os.Signal) chan<- os.Signal {
+	t.Helper()
+
+	select {
+	case ch := <-ready:
+		return ch
+	case <-time.After(time.Second):
+		t.Fatal("signalNotify was not called")
+		return nil
 	}
 }
 
 func TestWatchReload_SIGHUPTriggersReload(t *testing.T) {
 	path := writeWatcherConfig(t, minimalCfg)
 
-	var sigCh chan<- os.Signal
+	sigChReady := make(chan chan<- os.Signal, 1)
 	origNotify := signalNotify
 	origStop := signalStop
 	t.Cleanup(func() { signalNotify = origNotify; signalStop = origStop })
 
-	signalNotify = fakeNotify(&sigCh)
+	signalNotify = fakeNotify(sigChReady)
 	signalStop = func(_ chan<- os.Signal) {}
 
 	var called atomic.Int32
@@ -69,20 +81,13 @@ func TestWatchReload_SIGHUPTriggersReload(t *testing.T) {
 	done := make(chan struct{})
 	go func() {
 		defer close(done)
-		WatchReload(ctx, path, func(cfg *GatewayConfig) { //nolint:errcheck
+		WatchReload(ctx, path, func(_ *GatewayConfig) { //nolint:errcheck
 			called.Add(1)
 			cancel() // stop after first successful reload
 		})
 	}()
 
-	// Wait for signalNotify to be called so sigCh is populated.
-	deadline := time.Now().Add(time.Second)
-	for sigCh == nil && time.Now().Before(deadline) {
-		time.Sleep(5 * time.Millisecond)
-	}
-	if sigCh == nil {
-		t.Fatal("signalNotify was not called")
-	}
+	sigCh := waitForSignalChannel(t, sigChReady)
 
 	// Update the config file then send SIGHUP via the fake channel.
 	if err := os.WriteFile(path, []byte(updatedCfg), 0600); err != nil {
@@ -99,12 +104,12 @@ func TestWatchReload_SIGHUPTriggersReload(t *testing.T) {
 func TestWatchReload_BadConfigDoesNotCrash(t *testing.T) {
 	path := writeWatcherConfig(t, minimalCfg)
 
-	var sigCh chan<- os.Signal
+	sigChReady := make(chan chan<- os.Signal, 1)
 	origNotify := signalNotify
 	origStop := signalStop
 	t.Cleanup(func() { signalNotify = origNotify; signalStop = origStop })
 
-	signalNotify = fakeNotify(&sigCh)
+	signalNotify = fakeNotify(sigChReady)
 	signalStop = func(_ chan<- os.Signal) {}
 
 	var called atomic.Int32
@@ -119,13 +124,7 @@ func TestWatchReload_BadConfigDoesNotCrash(t *testing.T) {
 		})
 	}()
 
-	deadline := time.Now().Add(time.Second)
-	for sigCh == nil && time.Now().Before(deadline) {
-		time.Sleep(5 * time.Millisecond)
-	}
-	if sigCh == nil {
-		t.Fatal("signalNotify was not called")
-	}
+	sigCh := waitForSignalChannel(t, sigChReady)
 
 	// Write invalid YAML (missing required fields).
 	if err := os.WriteFile(path, []byte("gateway:\n  id: ''\n"), 0600); err != nil {
@@ -171,12 +170,12 @@ func TestWatchReload_CtxCancellationStops(t *testing.T) {
 func TestWatchReload_MultipleReloads(t *testing.T) {
 	path := writeWatcherConfig(t, minimalCfg)
 
-	var sigCh chan<- os.Signal
+	sigChReady := make(chan chan<- os.Signal, 1)
 	origNotify := signalNotify
 	origStop := signalStop
 	t.Cleanup(func() { signalNotify = origNotify; signalStop = origStop })
 
-	signalNotify = fakeNotify(&sigCh)
+	signalNotify = fakeNotify(sigChReady)
 	signalStop = func(_ chan<- os.Signal) {}
 
 	var called atomic.Int32
@@ -193,13 +192,7 @@ func TestWatchReload_MultipleReloads(t *testing.T) {
 		})
 	}()
 
-	deadline := time.Now().Add(time.Second)
-	for sigCh == nil && time.Now().Before(deadline) {
-		time.Sleep(5 * time.Millisecond)
-	}
-	if sigCh == nil {
-		t.Fatal("signalNotify was not called")
-	}
+	sigCh := waitForSignalChannel(t, sigChReady)
 
 	for i := 0; i < 3; i++ {
 		sigCh <- syscall.SIGHUP

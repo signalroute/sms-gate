@@ -60,8 +60,8 @@ func TestWindow_PartialExpiry(t *testing.T) {
 	w := newWindow(3, 100*time.Millisecond)
 	t0 := time.Now()
 
-	w.Allow(t0)                        // count=1
-	w.Allow(t0)                        // count=2
+	w.Allow(t0)                            // count=1
+	w.Allow(t0)                            // count=2
 	w.Allow(t0.Add(60 * time.Millisecond)) // count=3
 	if w.Allow(t0.Add(60 * time.Millisecond)) {
 		t.Fatal("should be blocked at count=3")
@@ -93,8 +93,8 @@ func TestSIMRateLimiter_UnderAllLimits(t *testing.T) {
 
 func TestSIMRateLimiter_BlocksAtPerMin(t *testing.T) {
 	lim := newSIMRateLimiter(RateLimitConfig{PerMin: 2, PerHour: 100, PerDay: 1000})
-	lim.Allow() // 1
-	lim.Allow() // 2
+	lim.Allow()      // 1
+	lim.Allow()      // 2
 	if lim.Allow() { // should block on per-min
 		t.Error("should be blocked at per-min limit of 2")
 	}
@@ -102,9 +102,9 @@ func TestSIMRateLimiter_BlocksAtPerMin(t *testing.T) {
 
 func TestSIMRateLimiter_BlocksAtPerHour(t *testing.T) {
 	lim := newSIMRateLimiter(RateLimitConfig{PerMin: 100, PerHour: 3, PerDay: 1000})
-	lim.Allow() // 1
-	lim.Allow() // 2
-	lim.Allow() // 3
+	lim.Allow()      // 1
+	lim.Allow()      // 2
+	lim.Allow()      // 3
 	if lim.Allow() { // should block on per-hour
 		t.Error("should be blocked at per-hour limit of 3")
 	}

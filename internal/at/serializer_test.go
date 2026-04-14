@@ -312,10 +312,10 @@ func TestRegistrationStatus(t *testing.T) {
 		response string
 		want     int
 	}{
-		{"+CREG: 0,1", 1},  // two-field (AT+CREG=2 mode)
-		{"+CREG: 1", 1},    // one-field (AT+CREG=0 mode)
-		{"+CREG: 0,3", 3},  // registration denied
-		{"+CREG: 5", 5},    // roaming
+		{"+CREG: 0,1", 1}, // two-field (AT+CREG=2 mode)
+		{"+CREG: 1", 1},   // one-field (AT+CREG=0 mode)
+		{"+CREG: 0,3", 3}, // registration denied
+		{"+CREG: 5", 5},   // roaming
 	}
 	for _, tc := range cases {
 		t.Run(tc.response, func(t *testing.T) {

@@ -12,32 +12,32 @@ const ProtocolVersion = 2
 // ── Message type constants ─────────────────────────────────────────────────
 
 const (
-	TypeHello          = "HELLO"
-	TypeTask           = "TASK"
-	TypeSMSReceived    = "SMS_RECEIVED"
+	TypeHello           = "HELLO"
+	TypeTask            = "TASK"
+	TypeSMSReceived     = "SMS_RECEIVED"
 	TypeSMSDeliveredAck = "SMS_DELIVERED_ACK"
-	TypeTaskAck        = "TASK_ACK"
-	TypeModemAlert     = "MODEM_ALERT"
-	TypeHeartbeat      = "HEARTBEAT"
+	TypeTaskAck         = "TASK_ACK"
+	TypeModemAlert      = "MODEM_ALERT"
+	TypeHeartbeat       = "HEARTBEAT"
 )
 
 // ── Task actions ───────────────────────────────────────────────────────────
 
 const (
-	ActionSendSMS     = "SEND_SMS"
-	ActionRebootModem = "REBOOT_MODEM"
-	ActionCheckSignal = "CHECK_SIGNAL"
+	ActionSendSMS      = "SEND_SMS"
+	ActionRebootModem  = "REBOOT_MODEM"
+	ActionCheckSignal  = "CHECK_SIGNAL"
 	ActionDeleteAllSMS = "DELETE_ALL_SMS"
 )
 
 // ── Alert codes ───────────────────────────────────────────────────────────
 
 const (
-	AlertSIMBanned     = "SIM_BANNED"
-	AlertSIMFull       = "SIM_FULL"
-	AlertModemHang     = "MODEM_HANG"
-	AlertModemRemoved  = "MODEM_REMOVED"
-	AlertSignalLost    = "SIGNAL_LOST"
+	AlertSIMBanned    = "SIM_BANNED"
+	AlertSIMFull      = "SIM_FULL"
+	AlertModemHang    = "MODEM_HANG"
+	AlertModemRemoved = "MODEM_REMOVED"
+	AlertSignalLost   = "SIGNAL_LOST"
 )
 
 // ── Task status ───────────────────────────────────────────────────────────
@@ -50,14 +50,14 @@ const (
 // ── Error codes ───────────────────────────────────────────────────────────
 
 const (
-	ErrCodeModemNotFound    = "MODEM_NOT_FOUND"
-	ErrCodeModemBusy        = "MODEM_BUSY"
+	ErrCodeModemNotFound     = "MODEM_NOT_FOUND"
+	ErrCodeModemBusy         = "MODEM_BUSY"
 	ErrCodeModemUnresponsive = "MODEM_UNRESPONSIVE"
-	ErrCodeSIMBanned        = "SIM_BANNED"
-	ErrCodeSIMFull          = "SIM_FULL"
-	ErrCodeSendFailed       = "SEND_FAILED"
-	ErrCodeRateLimited      = "RATE_LIMITED"
-	ErrCodeInvalidPayload   = "INVALID_PAYLOAD"
+	ErrCodeSIMBanned         = "SIM_BANNED"
+	ErrCodeSIMFull           = "SIM_FULL"
+	ErrCodeSendFailed        = "SEND_FAILED"
+	ErrCodeRateLimited       = "RATE_LIMITED"
+	ErrCodeInvalidPayload    = "INVALID_PAYLOAD"
 	ErrCodeUnsupportedAction = "UNSUPPORTED_ACTION"
 )
 

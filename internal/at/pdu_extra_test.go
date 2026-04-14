@@ -35,7 +35,7 @@ var testGSM7Bodies = func() []string {
 var testUCS2Bodies = func() []string {
 	b := make([]string, 10)
 	for i := range b {
-		n := (i+1)*7 // 7, 14, 21, … 70 chars
+		n := (i + 1) * 7 // 7, 14, 21, … 70 chars
 		if n < 1 {
 			n = 1
 		}

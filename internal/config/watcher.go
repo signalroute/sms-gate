@@ -24,7 +24,7 @@ var signalStop = func(ch chan<- os.Signal) {
 // WatchReload listens for SIGHUP and reloads the config file at path on each
 // signal. If parsing succeeds, apply is called with the new *GatewayConfig.
 // Errors are logged but do not crash the watcher. WatchReload returns when ctx
-// is cancelled.
+// is canceled.
 func WatchReload(ctx context.Context, path string, apply func(*GatewayConfig)) error {
 	ch := make(chan os.Signal, 1)
 	signalNotify(ch, syscall.SIGHUP)

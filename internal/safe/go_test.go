@@ -13,11 +13,49 @@ import (
 	"github.com/signalroute/sms-gate/internal/safe"
 )
 
+// syncBuffer wraps bytes.Buffer with a mutex so slog writes and test reads are race-free.
+type syncBuffer struct {
+	mu  sync.Mutex
+	buf bytes.Buffer
+}
+
+func (b *syncBuffer) Write(p []byte) (int, error) {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	return b.buf.Write(p)
+}
+
+func (b *syncBuffer) Contains(needle []byte) bool {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	return bytes.Contains(b.buf.Bytes(), needle)
+}
+
+func (b *syncBuffer) String() string {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	return b.buf.String()
+}
+
 // testLogger returns a logger writing to a buffer and the buffer itself.
-func testLogger() (*slog.Logger, *bytes.Buffer) {
-	buf := &bytes.Buffer{}
+func testLogger() (*slog.Logger, *syncBuffer) {
+	buf := &syncBuffer{}
 	log := slog.New(slog.NewJSONHandler(buf, &slog.HandlerOptions{Level: slog.LevelDebug}))
 	return log, buf
+}
+
+func waitForLog(t *testing.T, buf *syncBuffer, needle []byte) {
+	t.Helper()
+
+	deadline := time.Now().Add(500 * time.Millisecond)
+	for time.Now().Before(deadline) {
+		if buf.Contains(needle) {
+			return
+		}
+		time.Sleep(5 * time.Millisecond)
+	}
+
+	t.Fatalf("expected log containing %q, got: %s", needle, buf.String())
 }
 
 func TestGo_NoPanic(t *testing.T) {
@@ -44,13 +82,12 @@ func TestGo_PanicRecovered(t *testing.T) {
 	case <-time.After(time.Second):
 		t.Fatal("goroutine did not finish after panic")
 	}
-	// Small sleep so the panic log from the first goroutine has been flushed.
-	time.Sleep(20 * time.Millisecond)
+	waitForLog(t, buf, []byte("goroutine panic"))
 	// Process stays alive (we're still here).
-	if !bytes.Contains(buf.Bytes(), []byte("goroutine panic")) {
+	if !buf.Contains([]byte("goroutine panic")) {
 		t.Errorf("expected panic log entry, got: %s", buf.String())
 	}
-	if !bytes.Contains(buf.Bytes(), []byte("panicky")) {
+	if !buf.Contains([]byte("panicky")) {
 		t.Errorf("expected goroutine name in log, got: %s", buf.String())
 	}
 }
@@ -58,9 +95,8 @@ func TestGo_PanicRecovered(t *testing.T) {
 func TestGo_PanicLogsStack(t *testing.T) {
 	log, buf := testLogger()
 	safe.Go(log, "stacky", func() { panic("stack test") })
-	// Wait for the panic to be logged.
-	time.Sleep(50 * time.Millisecond)
-	if !bytes.Contains(buf.Bytes(), []byte("stack")) {
+	waitForLog(t, buf, []byte("stack"))
+	if !buf.Contains([]byte("stack")) {
 		t.Errorf("expected stack trace in log, got: %s", buf.String())
 	}
 }
@@ -93,7 +129,8 @@ func TestGoWithWaitGroup_PanicCallsDone(t *testing.T) {
 	case <-time.After(time.Second):
 		t.Fatal("wg.Wait() did not return after panic recovery")
 	}
-	if !bytes.Contains(buf.Bytes(), []byte("wg-panic")) {
+	waitForLog(t, buf, []byte("wg-panic"))
+	if !buf.Contains([]byte("wg-panic")) {
 		t.Errorf("panic goroutine name not logged: %s", buf.String())
 	}
 }
@@ -118,11 +155,11 @@ func TestGo_MultipleGoroutines(t *testing.T) {
 	var wg sync.WaitGroup
 	for _, name := range []string{"a", "b", "c", "d"} {
 		wg.Add(1)
-		name := name
-		safe.Go(log, name, func() {
+		n := name
+		safe.Go(log, n, func() {
 			defer wg.Done()
 			mu.Lock()
-			results = append(results, name)
+			results = append(results, n)
 			mu.Unlock()
 		})
 	}

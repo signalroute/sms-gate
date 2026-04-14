@@ -32,7 +32,7 @@ type mockServer struct {
 	mu       sync.Mutex
 	conn     *websocket.Conn
 	received []tunnel.Envelope // inbound messages from gateway
-	taskQ    chan []byte        // tasks to push down to gateway
+	taskQ    chan []byte       // tasks to push down to gateway
 }
 
 func newMockServer(t *testing.T) *mockServer {

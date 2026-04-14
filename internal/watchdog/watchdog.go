@@ -71,7 +71,7 @@ func New(cfg Config) *Watchdog {
 	}
 }
 
-// Run starts the watchdog loop. It blocks until ctx is cancelled.
+// Run starts the watchdog loop. It blocks until ctx is canceled.
 func (w *Watchdog) Run(ctx context.Context) {
 	ticker := time.NewTicker(w.interval)
 	defer ticker.Stop()
@@ -116,7 +116,7 @@ func sdNotify() error {
 	if err != nil {
 		return fmt.Errorf("watchdog: dial %s: %w", sock, err)
 	}
-	defer conn.Close()
+	defer func() { _ = conn.Close() }()
 
 	_, err = conn.Write([]byte("WATCHDOG=1"))
 	return err

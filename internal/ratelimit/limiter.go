@@ -26,9 +26,9 @@ const defaultPerMin = 10
 
 // bucket is a token-bucket for one ICCID.
 type bucket struct {
-	mu       sync.Mutex
-	tokens   float64
-	maxTokens float64
+	mu         sync.Mutex
+	tokens     float64
+	maxTokens  float64
 	refillRate float64 // tokens per nanosecond
 	lastRefill time.Time
 }
@@ -76,8 +76,8 @@ func (b *bucket) Allow() (ok bool, retryAfter time.Duration) {
 // Limiter holds per-ICCID token buckets and enforces the rate limit.
 // For a type-safe generic version, see Registry[K].
 type Limiter struct {
-	mu     sync.Mutex
-	perMin int
+	mu      sync.Mutex
+	perMin  int
 	buckets map[string]*bucket
 }
 

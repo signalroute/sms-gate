@@ -10,7 +10,7 @@
 //	CLOUD_TLS_KEY   path to a PEM-encoded private key   (mutual TLS)
 //	CLOUD_TLS_CA    path to a PEM-encoded CA certificate (server certificate pinning)
 //
-// Behaviour matrix:
+// Behavior matrix:
 //
 //	CERT+KEY set, CA set   → mutual TLS with custom CA trust
 //	CERT+KEY set, CA unset → mutual TLS with system trust store

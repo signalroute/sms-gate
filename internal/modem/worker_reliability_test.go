@@ -15,7 +15,7 @@ import (
 // ── InboundQueueSize ──────────────────────────────────────────────────────
 
 // TestNewWorker_DefaultQueueSize verifies that a zero InboundQueueSize uses
-// the default of 64 so existing callers don't change behaviour.
+// the default of 64 so existing callers don't change behavior.
 func TestNewWorker_DefaultQueueSize(t *testing.T) {
 	w := NewWorker(WorkerConfig{
 		Logger: slog.New(slog.NewTextHandler(io.Discard, nil)),
@@ -156,7 +156,7 @@ func TestDroppedTaskAckEnvelopeType(t *testing.T) {
 
 	w.drainInboundCh(nil)
 
-	if got.Envelope.Type != tunnel.TypeTaskAck {
-		t.Fatalf("expected TypeTaskAck, got %q", got.Envelope.Type)
+	if got.Type != tunnel.TypeTaskAck {
+		t.Fatalf("expected TypeTaskAck, got %q", got.Type)
 	}
 }

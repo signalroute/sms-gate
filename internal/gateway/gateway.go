@@ -51,7 +51,7 @@ type Gateway struct {
 	build     BuildMeta
 }
 
-// Option configures optional Gateway behaviour.
+// Option configures optional Gateway behavior.
 type Option func(*Gateway)
 
 // WithBuildMeta attaches build-time metadata to the gateway.
@@ -117,7 +117,7 @@ func New(conf *cfg.GatewayConfig, log *slog.Logger, opts ...Option) (*Gateway, e
 	return g, nil
 }
 
-// Run starts all goroutines and blocks until ctx is cancelled.
+// Run starts all goroutines and blocks until ctx is canceled.
 func (g *Gateway) Run(ctx context.Context) error {
 	log := g.log.With("component", "gateway")
 	log.Info("starting", "gateway_id", g.conf.Gateway.ID, "version", agentVersion)
@@ -149,7 +149,9 @@ func (g *Gateway) Run(ctx context.Context) error {
 		<-ctx.Done()
 		shutCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
-		_ = metricsSrv.Shutdown(shutCtx)
+		if err := metricsSrv.Shutdown(shutCtx); err != nil {
+			log.Warn("metrics server shutdown failed", "err", err)
+		}
 	})
 
 	// SIGUSR1 dumps all goroutine stacks to stderr (#77)
@@ -220,7 +222,7 @@ func (g *Gateway) Run(ctx context.Context) error {
 					GatewayID:     g.conf.Gateway.ID,
 					ExpectedICCID: mc.ExpectedICCID,
 					Buf:           g.buf,
-					Limiter:   g.limiter,
+					Limiter:       g.limiter,
 					RateConfig: modem.RateLimitConfig{
 						PerMin:  mc.RateLimit.PerMin,
 						PerHour: mc.RateLimit.PerHour,
@@ -321,9 +323,18 @@ func (g *Gateway) healthHandler(w http.ResponseWriter, r *http.Request) {
 		statusCode = http.StatusServiceUnavailable
 	}
 
+	payload, err := json.Marshal(resp)
+	if err != nil {
+		g.log.Error("marshal health response failed", "err", err)
+		http.Error(w, `{"error":"internal server error"}`, http.StatusInternalServerError)
+		return
+	}
+
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(statusCode)
-	_ = json.NewEncoder(w).Encode(resp)
+	if _, err := w.Write(payload); err != nil {
+		g.log.Warn("write health response failed", "err", err)
+	}
 }
 
 // modemsHandler serves GET /modems — returns current modem statuses (#162).
@@ -337,8 +348,16 @@ func (g *Gateway) modemsHandler(w http.ResponseWriter, r *http.Request) {
 	for _, s := range snap {
 		statuses = append(statuses, s)
 	}
+	payload, err := json.Marshal(statuses)
+	if err != nil {
+		g.log.Error("marshal modems response failed", "err", err)
+		http.Error(w, `{"error":"internal server error"}`, http.StatusInternalServerError)
+		return
+	}
 	w.Header().Set("Content-Type", "application/json")
-	_ = json.NewEncoder(w).Encode(statuses)
+	if _, err := w.Write(payload); err != nil {
+		g.log.Warn("write modems response failed", "err", err)
+	}
 }
 
 // modemResetHandler serves POST /modems/reset?iccid=<ICCID> (#158).
@@ -361,5 +380,7 @@ func (g *Gateway) modemResetHandler(w http.ResponseWriter, r *http.Request) {
 	wk.RequestReset()
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusAccepted)
-	_, _ = w.Write([]byte(`{"status":"reset requested","iccid":"` + iccid + `"}`))
+	if _, err := w.Write([]byte(`{"status":"reset requested","iccid":"` + iccid + `"}`)); err != nil {
+		g.log.Warn("write modem reset response failed", "err", err)
+	}
 }
