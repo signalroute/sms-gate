@@ -698,11 +698,10 @@ func (w *Worker) doSendSMS(s *at.Serializer, task tunnel.Task, log *slog.Logger)
 	}
 
 	for i, part := range parts {
-		_, err := s.ExecuteSend(part.HexStr, part.Length, at.TimeoutSend)
-		if err != nil {
+		if _, sendErr := s.ExecuteSend(part.HexStr, part.Length, at.TimeoutSend); sendErr != nil {
 			return nil, &tunnel.TaskError{
 				Code:    tunnel.ErrCodeSendFailed,
-				Message: fmt.Sprintf("part %d/%d: %v", i+1, len(parts), err),
+				Message: fmt.Sprintf("part %d/%d: %v", i+1, len(parts), sendErr),
 			}
 		}
 	}

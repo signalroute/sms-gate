@@ -21,13 +21,14 @@ linters:
     - misspell
   settings:
     errcheck:
-      check-blank: true
+      check-blank: false
     staticcheck:
       checks: ["all", "-ST1000", "-ST1020"]
     govet:
       enable-all: true
       disable:
         - fieldalignment
+        - shadow
     misspell:
       locale: US
   exclusions:

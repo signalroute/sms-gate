@@ -76,13 +76,6 @@ func buildMinimalDeliverPDU(udl byte, ud []byte) string {
 	return bytesToHex(pdu)
 }
 
-func hexNibble(n byte) byte {
-	if n < 10 {
-		return '0' + n
-	}
-	return 'A' + n - 10
-}
-
 func bytesToHex(b []byte) string {
 	const hexChars = "0123456789ABCDEF"
 	out := make([]byte, len(b)*2)
